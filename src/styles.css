@@ -1,0 +1,12 @@
+:root { --safe-bottom: env(safe-area-inset-bottom); }
+html, body, #root { height: 100%; }
+body { -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; }
+
+
+/* Improve card tap targets */
+button.h-11, .h-11 { min-height: 44px; }
+
+
+/* Bottom nav safe area */
+nav { padding-bottom: max(0px, var(--safe-bottom)); }
