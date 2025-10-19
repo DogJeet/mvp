@@ -18,9 +18,7 @@ function RegistrationRow({ registration }) {
         <tr>
             <td>
                 <div className="dashboard-table__title">{event.title}</div>
-                <div className="dashboard-table__meta">
-                    {event.city} • {formatRange(event.date_start, event.date_end)}
-                </div>
+                <div className="dashboard-table__meta">{event.city} • {formatRange(event.date_start, event.date_end)}</div>
             </td>
             <td>
                 <span className={`badge badge--status-${status}`}>{status === "confirmed" ? "Подтверждена" : "Ожидает"}</span>
@@ -58,9 +56,7 @@ function WaitlistRow({ entry }) {
         <tr>
             <td>
                 <div className="dashboard-table__title">{event.title}</div>
-                <div className="dashboard-table__meta">
-                    {event.city} • {event.level}
-                </div>
+                <div className="dashboard-table__meta">{event.city} • {event.level}</div>
             </td>
             <td>#{position}</td>
             <td>{new Date(createdAt).toLocaleString("ru-RU")}</td>
@@ -98,6 +94,17 @@ export default function PlayerDashboard({ data, loading, error, onRefresh }) {
     if (!data) return null;
 
     const { stats, registrations, waitlist, notifications, user } = data;
+    const displayName = user?.name || user?.full_name || user?.telegram || "Игрок";
+    const levelLabel = user?.level || user?.skill_level || "—";
+    const safeStats = {
+        upcoming: stats?.upcoming ?? 0,
+        waitlisted: stats?.waitlisted ?? 0,
+        paidSum: stats?.paidSum ?? stats?.paid_sum ?? 0,
+        attendanceMarked: stats?.attendanceMarked ?? stats?.attendance_marked ?? 0,
+    };
+    const registrationList = Array.isArray(registrations) ? registrations : [];
+    const waitlistList = Array.isArray(waitlist) ? waitlist : [];
+    const notificationsList = Array.isArray(notifications) ? notifications : [];
 
     return (
         <section className="dashboard">
@@ -105,7 +112,7 @@ export default function PlayerDashboard({ data, loading, error, onRefresh }) {
                 <div>
                     <h2 className="app-panel__title">Личный кабинет игрока</h2>
                     <p className="app-panel__subtitle">
-                        {user.name} • уровень: {user.level}. Управляйте записями, статусами оплат и листом ожидания.
+                        {displayName} • уровень: {levelLabel}. Управляйте записями, статусами оплат и листом ожидания.
                     </p>
                 </div>
                 <button type="button" className="button button--ghost" onClick={onRefresh}>
@@ -114,10 +121,10 @@ export default function PlayerDashboard({ data, loading, error, onRefresh }) {
             </header>
 
             <div className="dashboard__stats">
-                <StatCard label="Ближайшие" value={stats.upcoming} hint="Записи с датой в будущем" />
-                <StatCard label="Лист ожидания" value={stats.waitlisted} hint="События без свободных мест" />
-                <StatCard label="Оплачено" value={`${stats.paidSum} ₽`} hint="Подтверждённые платежи" />
-                <StatCard label="Посещено" value={stats.attendanceMarked} hint="Отмеченные посещения" />
+                <StatCard label="Ближайшие" value={safeStats.upcoming} hint="Записи с датой в будущем" />
+                <StatCard label="Лист ожидания" value={safeStats.waitlisted} hint="События без свободных мест" />
+                <StatCard label="Оплачено" value={`${safeStats.paidSum} ₽`} hint="Подтверждённые платежи" />
+                <StatCard label="Посещено" value={safeStats.attendanceMarked} hint="Отмеченные посещения" />
             </div>
 
             <section className="dashboard-section">
@@ -140,14 +147,14 @@ export default function PlayerDashboard({ data, loading, error, onRefresh }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {registrations.length === 0 ? (
+                            {registrationList.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="dashboard-table__empty">
                                         Записей пока нет. Найдите событие в каталоге.
                                     </td>
                                 </tr>
                             ) : (
-                                registrations.map((registration) => (
+                                registrationList.map((registration) => (
                                     <RegistrationRow key={registration.id} registration={registration} />
                                 ))
                             )}
@@ -174,14 +181,14 @@ export default function PlayerDashboard({ data, loading, error, onRefresh }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {waitlist.length === 0 ? (
+                            {waitlistList.length === 0 ? (
                                 <tr>
                                     <td colSpan={4} className="dashboard-table__empty">
                                         Вы ещё не добавлялись в лист ожидания.
                                     </td>
                                 </tr>
                             ) : (
-                                waitlist.map((entry) => <WaitlistRow key={entry.id} entry={entry} />)
+                                waitlistList.map((entry) => <WaitlistRow key={entry.id} entry={entry} />)
                             )}
                         </tbody>
                     </table>
@@ -194,7 +201,7 @@ export default function PlayerDashboard({ data, loading, error, onRefresh }) {
                     <span className="dashboard-section__caption">Email, SMS и Telegram по ключевым событиям</span>
                 </div>
                 <ul className="notification-list">
-                    {notifications.map((notification) => (
+                    {notificationsList.map((notification) => (
                         <li key={notification.id} className="notification-item">
                             <div className="notification-item__channel">{notification.channel}</div>
                             <div className="notification-item__title">{notification.title}</div>

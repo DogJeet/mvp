@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function BottomNav({ active, onChange, onProfile }) {
+export default function BottomNav({ active, onChange, onProfile, showAdmin = true }) {
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav__content">
@@ -24,16 +24,18 @@ export default function BottomNav({ active, onChange, onProfile }) {
                     </span>
                     <span className="bottom-nav__label">Игрок</span>
                 </button>
-                <button
-                    className={`bottom-nav__item ${active === "admin" ? "is-active" : ""}`.trim()}
-                    onClick={() => onChange("admin")}
-                    type="button"
-                >
-                    <span className="bottom-nav__icon" aria-hidden>
-                        🛠️
-                    </span>
-                    <span className="bottom-nav__label">Управление</span>
-                </button>
+                {showAdmin && (
+                    <button
+                        className={`bottom-nav__item ${active === "admin" ? "is-active" : ""}`.trim()}
+                        onClick={() => onChange("admin")}
+                        type="button"
+                    >
+                        <span className="bottom-nav__icon" aria-hidden>
+                            🛠️
+                        </span>
+                        <span className="bottom-nav__label">Управление</span>
+                    </button>
+                )}
                 <button className="bottom-nav__item" onClick={onProfile} type="button">
                     <span className="bottom-nav__icon" aria-hidden>
                         👤

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../lib/api";
 import { formatRange } from "../utils/date";
 import PaymentTimeline from "./PaymentTimeline";
 
-export default function EventDetails({ id, open, onClose, onRegistered, onWaitlisted }) {
+export default function EventDetails({ id, open, onClose, onRegistered, onWaitlisted, profile }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -60,12 +60,26 @@ export default function EventDetails({ id, open, onClose, onRegistered, onWaitli
 
     const soldOut = data?.spots_left !== undefined && data.spots_left <= 0;
 
+    const participantPayload = useMemo(() => {
+        if (!profile) {
+            return { name: "Гость" };
+        }
+        const base = {
+            name: profile.name || profile.full_name || profile.telegram || "Гость",
+            phone: profile.phone || profile.tel || "",
+            email: profile.email || "",
+            level: profile.level || profile.skill_level,
+            comment: profile.comment || profile.notes,
+        };
+        return base;
+    }, [profile]);
+
     const handleRegister = async () => {
         if (!id || busy) return;
         setBusy(true);
         setActionError(null);
         try {
-            const reservation = await api.register(id, { name: "Гость" });
+            const reservation = await api.register(id, participantPayload);
             setRegResult(reservation);
             const payment = await api.createPayment(reservation.reservation_id);
             setPaymentResult(payment);
@@ -83,7 +97,7 @@ export default function EventDetails({ id, open, onClose, onRegistered, onWaitli
         setBusy(true);
         setActionError(null);
         try {
-            const result = await api.joinWaitlist(id, { name: "Гость" });
+            const result = await api.joinWaitlist(id, participantPayload);
             setWaitlistResult(result);
             onWaitlisted?.();
         } catch (err) {
