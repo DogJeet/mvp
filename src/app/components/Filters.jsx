@@ -1,64 +1,84 @@
-import React, { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
+import React, { useEffect, useState } from "react";
 
+const cityOptions = [
+    { label: "Все города", value: "ALL" },
+    { label: "Москва", value: "Москва" },
+    { label: "Санкт-Петербург", value: "Санкт-Петербург" },
+];
 
-export default function Filters({ onChange, initial }) {
+const levelOptions = [
+    { label: "Любой", value: "ANY" },
+    { label: "Новички", value: "Новички" },
+    { label: "Средний", value: "Средний" },
+    { label: "Все уровни", value: "Все уровни" },
+    { label: "Продвинутый", value: "Продвинутый" },
+];
+
+export default function Filters({ onChange, initial, className = "" }) {
     const [city, setCity] = useState(initial?.city || "ALL");
     const [level, setLevel] = useState(initial?.level || "ANY");
     const [query, setQuery] = useState(initial?.q || "");
 
+    useEffect(() => {
+        setCity(initial?.city || "ALL");
+        setLevel(initial?.level || "ANY");
+        setQuery(initial?.q || "");
+    }, [initial?.city, initial?.level, initial?.q]);
 
-    const apply = () => {
+    const apply = (event) => {
+        event?.preventDefault?.();
         onChange({
             city: city === "ALL" ? undefined : city,
             level: level === "ANY" ? undefined : level,
-            q: query || undefined,
+            q: query.trim() || undefined,
         });
     };
 
-
     return (
-        <div className="flex flex-col gap-3">
-            <div className="relative w-full">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 opacity-60" />
-                <Input
+        <form className={`filters-panel ${className}`.trim()} onSubmit={apply}>
+            <label className="filters-search">
+                <span className="sr-only">Поиск</span>
+                <input
+                    type="search"
                     placeholder="Поиск по названию, клубу..."
-                    className="pl-9"
+                    className="filters-input filters-input--search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                 />
+            </label>
+            <div className="filters-row">
+                <label className="filters-field">
+                    <span className="filters-label">Город</span>
+                    <select
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="filters-select"
+                    >
+                        {cityOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="filters-field">
+                    <span className="filters-label">Уровень</span>
+                    <select
+                        value={level}
+                        onChange={(e) => setLevel(e.target.value)}
+                        className="filters-select"
+                    >
+                        {levelOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </label>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-                <Select value={city} onValueChange={setCity}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Город" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">Все города</SelectItem>
-                        <SelectItem value="Москва">Москва</SelectItem>
-                        <SelectItem value="Санкт-Петербург">Санкт-Петербург</SelectItem>
-                    </SelectContent>
-                </Select>
-
-
-                <Select value={level} onValueChange={setLevel}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Уровень" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ANY">Любой</SelectItem>
-                        <SelectItem value="Новички">Новички</SelectItem>
-                        <SelectItem value="Средний">Средний</SelectItem>
-                        <SelectItem value="Все уровни">Все уровни</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <Button onClick={apply} className="h-11">
-                <Filter className="mr-2 h-4 w-4" /> Применить
-            </Button>
-        </div>
+            <button type="submit" className="button button--primary filters-button">
+                Применить фильтры
+            </button>
+        </form>
     );
 }

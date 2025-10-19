@@ -1,28 +1,34 @@
 import React from "react";
-import { CalendarDays, UserRound } from "lucide-react";
-
 
 export default function BottomNav({ active, onChange, onProfile }) {
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur">
-            <div className="mx-auto max-w-md md:max-w-3xl lg:max-w-5xl grid grid-cols-3 h-14 text-sm">
+        <nav className="bottom-nav">
+            <div className="bottom-nav__content">
                 <button
-                    className={`flex items-center justify-center gap-2 ${active === "catalog" ? "font-medium" : "opacity-70"}`}
+                    className={`bottom-nav__item ${active === "catalog" ? "is-active" : ""}`.trim()}
                     onClick={() => onChange("catalog")}
+                    type="button"
                 >
-                    <CalendarDays className="h-5 w-5" />
-                    <span className="hidden sm:inline">Каталог</span>
+                    <span className="bottom-nav__icon" aria-hidden>
+                        📅
+                    </span>
+                    <span className="bottom-nav__label">Каталог</span>
                 </button>
                 <button
-                    className={`flex items-center justify-center gap-2 ${active === "my" ? "font-medium" : "opacity-70"}`}
+                    className={`bottom-nav__item ${active === "my" ? "is-active" : ""}`.trim()}
                     onClick={() => onChange("my")}
+                    type="button"
                 >
-                    <span className="h-5 w-5 rounded-full border grid place-items-center text-[11px]">М</span>
-                    <span className="hidden sm:inline">Мои</span>
+                    <span className="bottom-nav__icon bottom-nav__icon--badge" aria-hidden>
+                        М
+                    </span>
+                    <span className="bottom-nav__label">Мои</span>
                 </button>
-                <button className="flex items-center justify-center gap-2" onClick={onProfile}>
-                    <UserRound className="h-5 w-5" />
-                    <span className="hidden sm:inline">Профиль</span>
+                <button className="bottom-nav__item" onClick={onProfile} type="button">
+                    <span className="bottom-nav__icon" aria-hidden>
+                        👤
+                    </span>
+                    <span className="bottom-nav__label">Профиль</span>
                 </button>
             </div>
         </nav>
