@@ -1,96 +1,107 @@
-const demoEvents = [
-    {
-        id: "volleyball-beginners",
-        title: "Волейбол для новичков",
-        city: "Москва",
-        level: "Новички",
-        price: 700,
-        date_start: "2025-10-21T10:00:00+03:00",
-        date_end: "2025-10-21T12:00:00+03:00",
-        venue: "Спортивный центр №1",
-        address: "ул. Академика, 12",
-        capacity: 16,
-        spots_left: 6,
-        cover: "https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=1600&auto=format&fit=crop",
-    },
-    {
-        id: "board-games",
-        title: "Вечер настольных игр",
-        city: "Санкт-Петербург",
-        level: "Все уровни",
-        price: 500,
-        date_start: "2025-10-22T18:00:00+03:00",
-        date_end: "2025-10-22T21:00:00+03:00",
-        venue: "Клуб BoardTime",
-        address: "Невский проспект, 82",
-        capacity: 20,
-        spots_left: 0,
-        cover: "https://images.unsplash.com/photo-1504274066651-8d31a536b11a?q=80&w=1600&auto=format&fit=crop",
-    },
-    {
-        id: "basketball-pro",
-        title: "Тренировка по баскетболу",
-        city: "Москва",
-        level: "Продвинутый",
-        price: 1000,
-        date_start: "2025-10-26T12:00:00+03:00",
-        date_end: "2025-10-26T14:00:00+03:00",
-        venue: "Arena 24",
-        address: "ул. Центральная, 24",
-        capacity: 20,
-        spots_left: 12,
-        cover: "https://images.unsplash.com/photo-1587385789094-ded6f6d75f49?q=80&w=1600&auto=format&fit=crop",
-    },
-];
+const rawBaseUrl = process.env.REACT_APP_API_BASE_URL;
+const defaultBaseUrl = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000';
+const API_BASE_URL = (rawBaseUrl && rawBaseUrl.trim().length > 0 ? rawBaseUrl : defaultBaseUrl).replace(/\/$/, '');
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const toQueryString = (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        query.append(key, value);
+    });
+    const rendered = query.toString();
+    return rendered ? `?${rendered}` : '';
+};
 
-const normalizeFilters = (filters = {}) => ({
-    city: filters.city,
-    level: filters.level,
-    q: filters.q,
-});
+const request = async (path, options = {}) => {
+    const { method = 'GET', headers = {}, body, parse = 'json' } = options;
+    const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+    const requestHeaders = { Accept: 'application/json', ...headers };
+    const init = { method, headers: requestHeaders };
+
+    if (body !== undefined) {
+        if (typeof body === 'string') {
+            init.body = body;
+        } else {
+            init.body = JSON.stringify(body);
+            init.headers['Content-Type'] = init.headers['Content-Type'] || 'application/json';
+        }
+    }
+
+    const response = await fetch(url, init);
+
+    if (!response.ok) {
+        let message;
+        const contentType = response.headers.get('content-type') || '';
+        try {
+            if (contentType.includes('application/json')) {
+                const errorPayload = await response.json();
+                message = errorPayload?.message || errorPayload?.error;
+            } else {
+                message = await response.text();
+            }
+        } catch (error) {
+            message = response.statusText || 'Request failed';
+        }
+        throw new Error(message || `Request failed with status ${response.status}`);
+    }
+
+    if (parse === 'text') {
+        return response.text();
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        return response.json();
+    }
+
+    return response.text();
+};
 
 const api = {
     async listEvents(filters = {}) {
-        const normalized = normalizeFilters(filters);
-        await wait(200);
-        return demoEvents.filter((event) => {
-            if (normalized.city && event.city !== normalized.city) return false;
-            if (normalized.level && event.level !== normalized.level) return false;
-            if (normalized.q) {
-                const needle = normalized.q.toLowerCase();
-                const haystack = `${event.title} ${event.venue} ${event.city}`.toLowerCase();
-                if (!haystack.includes(needle)) return false;
-            }
-            return true;
+        const query = toQueryString({
+            city: filters.city,
+            level: filters.level,
+            q: filters.q,
         });
+        return request(`/api/events${query}`);
     },
     async getEvent(id) {
-        await wait(150);
-        const event = demoEvents.find((item) => item.id === id);
-        if (!event) {
-            throw new Error("Not found");
-        }
-        return event;
+        if (!id) throw new Error('Event id is required');
+        return request(`/api/events/${encodeURIComponent(id)}`);
     },
-    async register(eventId, payload) {
-        await wait(150);
-        return {
-            reservation_id: `demo-${eventId}-${Date.now()}`,
-            status: "reserved",
-            payload,
-        };
+    async register(eventId, payload = {}) {
+        if (!eventId) throw new Error('Event id is required');
+        return request(`/api/events/${encodeURIComponent(eventId)}/register`, {
+            method: 'POST',
+            body: { payload },
+        });
     },
-    async createPayment(reservation_id) {
-        await wait(150);
-        return {
-            payment_url: "https://example.com/pay?demo=1",
-            provider: "demo",
-            payment_id: `p_${Math.random().toString(36).slice(2)}`,
-            status: "pending",
-            reservation_id,
-        };
+    async createPayment(reservationId) {
+        if (!reservationId) throw new Error('Reservation id is required');
+        return request(`/api/reservations/${encodeURIComponent(reservationId)}/payments`, {
+            method: 'POST',
+        });
+    },
+    async joinWaitlist(eventId, payload = {}) {
+        if (!eventId) throw new Error('Event id is required');
+        return request(`/api/events/${encodeURIComponent(eventId)}/waitlist`, {
+            method: 'POST',
+            body: { payload },
+        });
+    },
+    async getPlayerDashboard(userId) {
+        const query = toQueryString({ user_id: userId });
+        return request(`/api/dashboards/player${query}`);
+    },
+    async getAdminOverview() {
+        return request('/api/dashboards/admin');
+    },
+    async exportRegistrations() {
+        return request('/api/exports/registrations', {
+            headers: { Accept: 'text/csv' },
+            parse: 'text',
+        });
     },
 };
 

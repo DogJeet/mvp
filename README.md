@@ -14,6 +14,12 @@ Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 The page will reload when you make changes.\
 You may also see any lint errors in the console.
 
+### `npm run server`
+
+Starts the in-memory API on port 4000.
+Use `REACT_APP_API_BASE_URL` to point the frontend to a different origin when deploying.
+
+
 ### `npm test`
 
 Launches the test runner in the interactive watch mode.\

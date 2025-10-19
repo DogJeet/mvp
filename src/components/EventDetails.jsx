@@ -2,14 +2,18 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../lib/api";
 import { formatRange } from "../utils/date";
+import PaymentTimeline from "./PaymentTimeline";
 
-export default function EventDetails({ id, open, onClose }) {
+export default function EventDetails({ id, open, onClose, onRegistered, onWaitlisted }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
     const [regResult, setRegResult] = useState(null);
     const [payUrl, setPayUrl] = useState(null);
+    const [paymentResult, setPaymentResult] = useState(null);
+    const [waitlistResult, setWaitlistResult] = useState(null);
+    const [actionError, setActionError] = useState(null);
 
     useEffect(() => {
         if (!id || !open) {
@@ -17,6 +21,9 @@ export default function EventDetails({ id, open, onClose }) {
             setRegResult(null);
             setPayUrl(null);
             setBusy(false);
+            setPaymentResult(null);
+            setWaitlistResult(null);
+            setActionError(null);
             return undefined;
         }
         let cancelled = false;
@@ -56,11 +63,31 @@ export default function EventDetails({ id, open, onClose }) {
     const handleRegister = async () => {
         if (!id || busy) return;
         setBusy(true);
+        setActionError(null);
         try {
             const reservation = await api.register(id, { name: "Гость" });
             setRegResult(reservation);
             const payment = await api.createPayment(reservation.reservation_id);
+            setPaymentResult(payment);
             setPayUrl(payment.payment_url || null);
+            onRegistered?.();
+        } catch (err) {
+            setActionError("Не удалось создать бронь. Попробуйте позже.");
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleWaitlist = async () => {
+        if (!id || busy) return;
+        setBusy(true);
+        setActionError(null);
+        try {
+            const result = await api.joinWaitlist(id, { name: "Гость" });
+            setWaitlistResult(result);
+            onWaitlisted?.();
+        } catch (err) {
+            setActionError("Не удалось добавить в лист ожидания. Попробуйте позже.");
         } finally {
             setBusy(false);
         }
@@ -80,6 +107,9 @@ export default function EventDetails({ id, open, onClose }) {
                                 <div className="modal-meta">
                                     <span className="modal-chip">📍 {data.city}</span>
                                     <span className="modal-chip">🎯 {data.level}</span>
+                                    <span className="modal-chip">
+                                        {data.status === "published" ? "Статус: опубликовано" : "Статус: черновик"}
+                                    </span>
                                     <span className="modal-chip">🕒 {formatRange(data.date_start, data.date_end)}</span>
                                 </div>
                             )}
@@ -101,6 +131,10 @@ export default function EventDetails({ id, open, onClose }) {
                                 <b>{data.venue}</b>, {data.address}. Приходите за 10 минут до начала. После регистрации откроется окно
                                 оплаты.
                             </p>
+                            <p className="modal-note__text">
+                                Формат: <b>{data.category || "Событие"}</b>. Организатор: {data.organizer}. При отмене бронь автоматически
+                                освободится для следующего участника из листа ожидания.
+                            </p>
                         </div>
                     )}
 
@@ -108,15 +142,29 @@ export default function EventDetails({ id, open, onClose }) {
                         <span className={`modal-badge ${soldOut ? "modal-badge--soldout" : ""}`}>
                             {soldOut ? "Нет мест" : `Свободно мест: ${data?.spots_left ?? "—"}`}
                         </span>
-                        <button
-                            type="button"
-                            onClick={handleRegister}
-                            disabled={soldOut || busy || !data}
-                            className="button button--primary modal-actions__cta"
-                        >
-                            {busy ? "Создание платежа..." : "Записаться и оплатить"}
-                        </button>
+                        <div className="modal-actions__buttons">
+                            <button
+                                type="button"
+                                onClick={handleRegister}
+                                disabled={soldOut || busy || !data}
+                                className="button button--primary modal-actions__cta"
+                            >
+                                {busy ? "Создание платежа..." : "Записаться и оплатить"}
+                            </button>
+                            {soldOut && (
+                                <button
+                                    type="button"
+                                    className="button button--ghost"
+                                    onClick={handleWaitlist}
+                                    disabled={busy || Boolean(waitlistResult)}
+                                >
+                                    {waitlistResult ? "Вы в листе ожидания" : "Стать в лист ожидания"}
+                                </button>
+                            )}
+                        </div>
                     </div>
+
+                    {actionError && <div className="app-alert app-alert--error">{actionError}</div>}
 
                     {regResult && (
                         <div className="modal-summary">
@@ -133,6 +181,18 @@ export default function EventDetails({ id, open, onClose }) {
                             )}
                         </div>
                     )}
+
+                    {waitlistResult && (
+                        <div className="modal-summary modal-summary--waitlist">
+                            <div className="modal-summary__title">Вы добавлены в лист ожидания</div>
+                            <div className="modal-summary__caption">
+                                Позиция #{waitlistResult.position} из {waitlistResult.waitlist_limit}. Уведомление придёт в Telegram
+                                и Email.
+                            </div>
+                        </div>
+                    )}
+
+                    {(regResult || paymentResult) && <PaymentTimeline reservation={regResult} payment={paymentResult} />}
                 </div>
             </div>
         </div>,
