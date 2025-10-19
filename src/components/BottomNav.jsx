@@ -19,10 +19,20 @@ export default function BottomNav({ active, onChange, onProfile }) {
                     onClick={() => onChange("my")}
                     type="button"
                 >
-                    <span className="bottom-nav__icon bottom-nav__icon--badge" aria-hidden>
-                        М
+                    <span className="bottom-nav__icon" aria-hidden>
+                        🏅
                     </span>
-                    <span className="bottom-nav__label">Мои</span>
+                    <span className="bottom-nav__label">Игрок</span>
+                </button>
+                <button
+                    className={`bottom-nav__item ${active === "admin" ? "is-active" : ""}`.trim()}
+                    onClick={() => onChange("admin")}
+                    type="button"
+                >
+                    <span className="bottom-nav__icon" aria-hidden>
+                        🛠️
+                    </span>
+                    <span className="bottom-nav__label">Управление</span>
                 </button>
                 <button className="bottom-nav__item" onClick={onProfile} type="button">
                     <span className="bottom-nav__icon" aria-hidden>

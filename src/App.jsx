@@ -6,6 +6,8 @@ import BottomNav from "./components/BottomNav";
 import Empty from "./components/Empty";
 import ProfileDialog from "./components/ProfileDialog";
 import EventDetails from "./components/EventDetails";
+import PlayerDashboard from "./components/PlayerDashboard";
+import AdminPanel from "./components/AdminPanel";
 import api from "./lib/api";
 import useTelegram from "./lib/telegram";
 import runDevTests from "./tests/dev-tests";
@@ -21,6 +23,14 @@ export default function App() {
     const [error, setError] = useState(null);
     const [selected, setSelected] = useState(null);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [playerData, setPlayerData] = useState(null);
+    const [playerLoading, setPlayerLoading] = useState(false);
+    const [playerError, setPlayerError] = useState(null);
+    const [playerReloadKey, setPlayerReloadKey] = useState(0);
+    const [adminData, setAdminData] = useState(null);
+    const [adminLoading, setAdminLoading] = useState(false);
+    const [adminError, setAdminError] = useState(null);
+    const [adminReloadKey, setAdminReloadKey] = useState(0);
 
     useEffect(() => {
         runDevTests?.();
@@ -49,6 +59,54 @@ export default function App() {
         };
     }, [filters]);
 
+    useEffect(() => {
+        if (tab !== "my") return undefined;
+        let cancelled = false;
+        setPlayerLoading(true);
+        setPlayerError(null);
+        api.getPlayerDashboard()
+            .then((data) => {
+                if (!cancelled) {
+                    setPlayerData(data);
+                    setPlayerLoading(false);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setPlayerData(null);
+                    setPlayerError("Не удалось загрузить данные игрока");
+                    setPlayerLoading(false);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tab, playerReloadKey]);
+
+    useEffect(() => {
+        if (tab !== "admin") return undefined;
+        let cancelled = false;
+        setAdminLoading(true);
+        setAdminError(null);
+        api.getAdminOverview()
+            .then((data) => {
+                if (!cancelled) {
+                    setAdminData(data);
+                    setAdminLoading(false);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setAdminData(null);
+                    setAdminError("Не удалось загрузить панель администратора");
+                    setAdminLoading(false);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tab, adminReloadKey]);
+
     const handleFilterChange = (next) => {
         setFilters(next);
     };
@@ -59,6 +117,9 @@ export default function App() {
         }
         return () => tg.close();
     }, [tg]);
+
+    const refreshPlayerData = () => setPlayerReloadKey((key) => key + 1);
+    const refreshAdminData = () => setAdminReloadKey((key) => key + 1);
 
     return (
         <div className="app-shell">
@@ -92,18 +153,31 @@ export default function App() {
                                 </div>
                             )}
                         </div>
+                    ) : tab === "my" ? (
+                        <PlayerDashboard
+                            data={playerData}
+                            loading={playerLoading}
+                            error={playerError}
+                            onRefresh={refreshPlayerData}
+                        />
                     ) : (
-                        <section className="app-panel">
-                            <h2 className="app-panel__title">Мои события</h2>
-                            <p className="app-panel__subtitle">
-                                Здесь появятся ваши активные и прошедшие записи после интеграции с API. Пока можно составить избранное в каталоге.
-                            </p>
-                        </section>
+                        <AdminPanel
+                            data={adminData}
+                            loading={adminLoading}
+                            error={adminError}
+                            onRefresh={refreshAdminData}
+                        />
                     )}
                 </div>
             </main>
             <footer className="app-footer">© {new Date().getFullYear()} GameUp</footer>
-            <EventDetails id={selected} open={Boolean(selected)} onClose={() => setSelected(null)} />
+            <EventDetails
+                id={selected}
+                open={Boolean(selected)}
+                onClose={() => setSelected(null)}
+                onRegistered={refreshPlayerData}
+                onWaitlisted={refreshPlayerData}
+            />
             <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
             <BottomNav active={tab} onChange={setTab} onProfile={() => setProfileOpen(true)} />
         </div>
