@@ -1,70 +1,61 @@
-# Getting Started with Create React App
+# Tournament Front-end
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project implements the user- and admin-facing front-end for a tournament registration platform. It was bootstrapped with Create React App but now expects a live backend that exposes a set of REST endpoints for players, administrators, events, payments, and waitlists.
 
-## Available Scripts
+## Features
+- Event catalogue with search filters, event details, and registration/waitlist flows.
+- Player profile management stored on the backend and reused for registrations.
+- Player dashboard showing upcoming registrations, notifications, and payment history.
+- Admin overview gated by administrator role with visibility into events, waitlists, payments, and audit logs.
 
-In the project directory, you can run:
+## Prerequisites
+- Node.js 18+
+- npm 9+
 
-### `npm start`
+## Environment variables
+The application reads the backend base URL from `VITE_API_BASE_URL`. Create a `.env` file (or set the variable in your shell) before running the app:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+VITE_API_BASE_URL="https://your-backend.example.com"
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+If omitted, the frontend will issue requests relative to the current origin.
 
-### `npm test`
+## Development
+```bash
+npm install
+npm start
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+The development server runs on [http://localhost:3000](http://localhost:3000) and will proxy API calls to the URL configured in `VITE_API_BASE_URL` (or to the same origin if you are serving the backend on `localhost:3000`).
 
-### `npm run build`
+## Production build
+```bash
+npm run build
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+The build output is emitted into the `build/` directory and can be served by any static file host.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## API contract
+The frontend consumes the following endpoints. Responses should be JSON unless stated otherwise and all endpoints are expected to require authentication via cookie-based session.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/player/profile` | Returns the logged-in user's profile (name, phone, email, level, role/roles, notes). |
+| PATCH | `/api/player/profile` | Updates the profile with the same fields returned by the GET endpoint. |
+| GET | `/api/events` | Lists events; accepts optional `city`, `level`, and `q` query params. |
+| GET | `/api/events/{id}` | Returns full details for a single event. |
+| POST | `/api/events/{id}/register` | Registers the current player for the event, returning the reservation/registration record. |
+| POST | `/api/events/{id}/waitlist` | Adds the player to the event waitlist. |
+| POST | `/api/payments` | Creates a payment intent for a reservation. Returns payment reference/status. |
+| GET | `/api/player/dashboard` | Returns the player's dashboard data (upcoming registrations, stats, etc.). |
+| GET | `/api/player/notifications` | Returns an array of user-facing notifications. Optional; empty array if none. |
+| GET | `/api/player/payments` | Returns payment history for the user. Optional; empty array if none. |
+| GET | `/api/admin/dashboard` | Returns aggregated metrics for admins. Requires administrator role. |
+| GET | `/api/admin/events` | Returns enriched event list for admins. Requires administrator role. |
+| GET | `/api/admin/waitlist` | Returns waitlisted entries. Requires administrator role. |
+| GET | `/api/admin/payments` | Returns payments requiring admin attention. Requires administrator role. |
+| GET | `/api/admin/audit-log` | Returns recent administrative actions. Requires administrator role. |
+| GET | `/api/admin/events/export` | Returns a CSV export of registrations (respond with `text/csv`). |
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+For implementation guidance, see [docs/backend-guide.md](docs/backend-guide.md).
