@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+
 export const useTelegram = () => {
     const [tg, setTg] = useState(null);
     const [initDataUnsafe, setInitDataUnsafe] = useState(null);
+
     useEffect(() => {
         const w = window;
         const webApp = w?.Telegram?.WebApp;
@@ -15,6 +17,8 @@ export const useTelegram = () => {
             document.body.style.background = bg;
         }
     }, []);
+
     return { tg, initDataUnsafe };
 };
+
 export default useTelegram;
