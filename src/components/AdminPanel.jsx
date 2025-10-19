@@ -40,6 +40,18 @@ export default function AdminPanel({ data, loading, error, onRefresh }) {
         );
     }
 
+    if (error === "Доступ ограничен") {
+        return (
+            <section className="app-panel">
+                <h2 className="app-panel__title">Администрирование</h2>
+                <p className="app-panel__subtitle">
+                    Для доступа к управлению событиями нужен аккаунт администратора или организатора.
+                </p>
+                <div className="app-alert app-alert--error">{error}</div>
+            </section>
+        );
+    }
+
     if (error) {
         return (
             <section className="app-panel">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
 import Filters from "./components/Filters";
 import EventCard from "./components/EventCard";
@@ -31,6 +31,12 @@ export default function App() {
     const [adminLoading, setAdminLoading] = useState(false);
     const [adminError, setAdminError] = useState(null);
     const [adminReloadKey, setAdminReloadKey] = useState(0);
+    const [profile, setProfile] = useState(null);
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [profileError, setProfileError] = useState(null);
+    const [profileSaving, setProfileSaving] = useState(false);
+    const [profileSaveError, setProfileSaveError] = useState(null);
+    const [profileReloadKey, setProfileReloadKey] = useState(0);
 
     useEffect(() => {
         runDevTests?.();
@@ -43,12 +49,13 @@ export default function App() {
         api.listEvents(filters)
             .then((list) => {
                 if (!cancelled) {
-                    setEvents(list);
+                    setEvents(Array.isArray(list) ? list : []);
                     setLoading(false);
                 }
             })
-            .catch(() => {
+            .catch((err) => {
                 if (!cancelled) {
+                    console.error(err);
                     setEvents([]);
                     setError("Не удалось загрузить события");
                     setLoading(false);
@@ -58,6 +65,30 @@ export default function App() {
             cancelled = true;
         };
     }, [filters]);
+
+    useEffect(() => {
+        let cancelled = false;
+        setProfileLoading(true);
+        setProfileError(null);
+        api.getProfile()
+            .then((data) => {
+                if (!cancelled) {
+                    setProfile(data);
+                    setProfileLoading(false);
+                }
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    console.error(err);
+                    setProfile(null);
+                    setProfileError("Не удалось загрузить профиль");
+                    setProfileLoading(false);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [profileReloadKey]);
 
     useEffect(() => {
         if (tab !== "my") return undefined;
@@ -83,8 +114,17 @@ export default function App() {
         };
     }, [tab, playerReloadKey]);
 
+    const roles = useMemo(() => {
+        if (!profile) return [];
+        if (Array.isArray(profile.roles)) return profile.roles;
+        if (typeof profile.role === "string") return [profile.role];
+        return [];
+    }, [profile]);
+
+    const isAdmin = useMemo(() => roles.some((role) => ["admin", "super_admin", "organizer"].includes(role)), [roles]);
+
     useEffect(() => {
-        if (tab !== "admin") return undefined;
+        if (tab !== "admin" || !isAdmin) return undefined;
         let cancelled = false;
         setAdminLoading(true);
         setAdminError(null);
@@ -95,21 +135,57 @@ export default function App() {
                     setAdminLoading(false);
                 }
             })
-            .catch(() => {
+            .catch((err) => {
                 if (!cancelled) {
                     setAdminData(null);
-                    setAdminError("Не удалось загрузить панель администратора");
+                    const message = err?.status === 403 ? "Доступ ограничен" : err?.message;
+                    setAdminError(message || "Не удалось загрузить панель администратора");
                     setAdminLoading(false);
                 }
             });
         return () => {
             cancelled = true;
         };
-    }, [tab, adminReloadKey]);
+    }, [tab, adminReloadKey, isAdmin]);
+
+    useEffect(() => {
+        if (!isAdmin && tab === "admin") {
+            setTab("catalog");
+        }
+    }, [isAdmin, tab]);
 
     const handleFilterChange = (next) => {
         setFilters(next);
     };
+
+    const refreshProfile = useCallback(() => {
+        setProfileReloadKey((key) => key + 1);
+    }, []);
+
+    const handleProfileSubmit = useCallback(
+        async (formData) => {
+            if (profileSaving) return;
+            setProfileSaving(true);
+            setProfileSaveError(null);
+            try {
+                const updated = await api.updateProfile(formData);
+                setProfile((prev) => ({ ...(prev || {}), ...formData, ...(updated || {}) }));
+                setProfileSaving(false);
+                setProfileOpen(false);
+            } catch (err) {
+                console.error(err);
+                setProfileSaveError(err.message || "Не удалось сохранить профиль");
+                setProfileSaving(false);
+            }
+        },
+        [profileSaving],
+    );
+
+    useEffect(() => {
+        if (profileOpen) {
+            setProfileSaveError(null);
+        }
+    }, [profileOpen]);
 
     const closeHandler = useMemo(() => {
         if (!tg || typeof tg.close !== "function") {
@@ -123,7 +199,13 @@ export default function App() {
 
     return (
         <div className="app-shell">
-            <Header onOpenProfile={() => setProfileOpen(true)} onCloseApp={closeHandler} />
+            <Header
+                onOpenProfile={() => setProfileOpen(true)}
+                onCloseApp={closeHandler}
+                profile={profile}
+                profileLoading={profileLoading}
+                profileError={profileError}
+            />
             <main className="app-main">
                 <div className="app-content">
                     {tab === "catalog" ? (
@@ -164,7 +246,7 @@ export default function App() {
                         <AdminPanel
                             data={adminData}
                             loading={adminLoading}
-                            error={adminError}
+                            error={isAdmin ? adminError : "Доступ ограничен"}
                             onRefresh={refreshAdminData}
                         />
                     )}
@@ -175,11 +257,36 @@ export default function App() {
                 id={selected}
                 open={Boolean(selected)}
                 onClose={() => setSelected(null)}
-                onRegistered={refreshPlayerData}
-                onWaitlisted={refreshPlayerData}
+                onRegistered={() => {
+                    refreshPlayerData();
+                    refreshAdminData();
+                }}
+                onWaitlisted={() => {
+                    refreshPlayerData();
+                    refreshAdminData();
+                }}
+                profile={profile}
             />
-            <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
-            <BottomNav active={tab} onChange={setTab} onProfile={() => setProfileOpen(true)} />
+            <ProfileDialog
+                open={profileOpen}
+                onOpenChange={setProfileOpen}
+                profile={profile}
+                loading={profileLoading}
+                error={profileError}
+                saving={profileSaving}
+                saveError={profileSaveError}
+                onRetry={refreshProfile}
+                onSubmit={handleProfileSubmit}
+            />
+            <BottomNav
+                active={tab}
+                onChange={(nextTab) => {
+                    if (nextTab === "admin" && !isAdmin) return;
+                    setTab(nextTab);
+                }}
+                onProfile={() => setProfileOpen(true)}
+                showAdmin={isAdmin}
+            />
         </div>
     );
 }
