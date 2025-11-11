@@ -48,6 +48,37 @@ const extractTheme = (params: ThemeParams | undefined): ThemeValues => ({
     accent: params?.button_text_color ?? FALLBACK_THEME.accent,
 });
 
+const parseToRgbChannels = (value: string): string => {
+    if (!value) {
+        return "0 0 0";
+    }
+
+    if (/^rgba?\(/i.test(value)) {
+        const numbers = value.match(/\d+(?:\.\d+)?/g);
+        if (numbers && numbers.length >= 3) {
+            return `${numbers[0]} ${numbers[1]} ${numbers[2]}`;
+        }
+    }
+
+    let hex = value.trim().replace(/^#/, "");
+    if (hex.length === 3) {
+        hex = hex
+            .split("")
+            .map((char) => char + char)
+            .join("");
+    }
+
+    const numeric = Number.parseInt(hex, 16);
+    if (Number.isNaN(numeric)) {
+        return value;
+    }
+
+    const r = (numeric >> 16) & 255;
+    const g = (numeric >> 8) & 255;
+    const b = numeric & 255;
+    return `${r} ${g} ${b}`;
+};
+
 const applyThemeToDocument = (theme: ThemeValues) => {
     if (typeof document === "undefined") {
         return;
@@ -55,7 +86,7 @@ const applyThemeToDocument = (theme: ThemeValues) => {
 
     const root = document.documentElement;
     CSS_VARIABLES.forEach((variable) => {
-        root.style.setProperty(`--${variable}`, theme[variable]);
+        root.style.setProperty(`--${variable}`, parseToRgbChannels(theme[variable]));
     });
 };
 
