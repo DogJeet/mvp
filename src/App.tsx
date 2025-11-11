@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import AlreadyRated from "./components/AlreadyRated";
 import ReviewForm from "./components/ReviewForm";
 import TeacherList from "./components/TeacherList";
 import useTgTheme from "./lib/useTgTheme";
@@ -7,24 +8,6 @@ type ScreenState =
     | { type: "list" }
     | { type: "review"; teacherId: number; teacherName: string }
     | { type: "rated" };
-
-type AlreadyRatedProps = {
-    onReset: () => void;
-};
-
-function AlreadyRated({ onReset }: AlreadyRatedProps) {
-    return (
-        <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-text">Отзыв отправлен</h2>
-            <p className="text-sm text-subtext">
-                Заглушка финального экрана. Здесь можно показать благодарность и поделиться результатами.
-            </p>
-            <button type="button" className="btn btn-primary" onClick={onReset}>
-                Вернуться к преподавателям
-            </button>
-        </section>
-    );
-}
 
 export default function App() {
     useTgTheme();
@@ -81,7 +64,7 @@ export default function App() {
                 {screen.type === "review" && (
                     <ReviewForm teacherId={screen.teacherId} onSuccess={markRated} onAlreadyRated={markRated} />
                 )}
-                {screen.type === "rated" && <AlreadyRated onReset={showList} />}
+                {screen.type === "rated" && <AlreadyRated onBack={showList} />}
             </main>
         </div>
     );
