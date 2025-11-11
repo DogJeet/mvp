@@ -1,50 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
+import TeacherList from "./components/TeacherList";
 import useTgTheme from "./lib/useTgTheme";
 
 type ScreenState =
     | { type: "list" }
     | { type: "review"; teacherId: string; teacherName: string }
     | { type: "rated" };
-
-type Teacher = {
-    id: string;
-    name: string;
-};
-
-const TEACHERS: Teacher[] = [
-    { id: "anna", name: "Анна" },
-    { id: "olga", name: "Ольга" },
-    { id: "maksim", name: "Максим" },
-];
-
-type TeacherListProps = {
-    teachers: Teacher[];
-    onOpenReview: (teacherId: string, teacherName: string) => void;
-};
-
-function TeacherList({ teachers, onOpenReview }: TeacherListProps) {
-    return (
-        <section className="space-y-6">
-            <p className="text-sm text-subtext">
-                Здесь будет список преподавателей с итоговыми оценками и последними комментариями.
-            </p>
-
-            <div className="grid gap-3">
-                {teachers.map((teacher) => (
-                    <button
-                        key={teacher.id}
-                        type="button"
-                        className="btn btn-primary justify-between"
-                        onClick={() => onOpenReview(teacher.id, teacher.name)}
-                    >
-                        <span className="font-semibold text-text">{teacher.name}</span>
-                        <span className="text-sm text-accent/80">Оставить отзыв</span>
-                    </button>
-                ))}
-            </div>
-        </section>
-    );
-}
 
 type ReviewFormProps = {
     teacherName: string;
@@ -143,7 +104,7 @@ export default function App() {
             </header>
 
             <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8">
-                {screen.type === "list" && <TeacherList teachers={TEACHERS} onOpenReview={openReview} />}
+                {screen.type === "list" && <TeacherList onSelect={openReview} />}
                 {screen.type === "review" && (
                     <ReviewForm teacherName={screen.teacherName} onSubmit={markRated} onBack={showList} />
                 )}
