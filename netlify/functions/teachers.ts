@@ -1,7 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { neon } from "@netlify/neon";
-
-const sql = neon();
+import { sql } from "./db";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
