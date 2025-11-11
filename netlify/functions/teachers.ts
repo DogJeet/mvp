@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { sql } from "./db";
+import { ensureSchema, sql } from "./db";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -28,6 +28,7 @@ const escapeSearchTerm = (value: string) => value.replace(/[%_]/g, (match) => `\
 
 export const handler: Handler = async (event) => {
     try {
+        await ensureSchema();
         const { search, sort, limit, offset } = event.queryStringParameters || {};
 
         const normalizedSort = normalizeSort(sort || undefined);
@@ -55,7 +56,7 @@ export const handler: Handler = async (event) => {
                     COALESCE(AVG(r.rating)::numeric, 0) AS avg_rating,
                     COUNT(r.rating) AS reviews_count
                 FROM teachers t
-                LEFT JOIN teacher_reviews r ON r.teacher_id = t.id
+                LEFT JOIN reviews r ON r.teacher_id = t.id
                 ${whereClause}
                 GROUP BY t.id
             )
