@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    color-scheme: dark;
+    --bg: #14161A;
+    --card: #1E2127;
+    --text: #ECEFF4;
+    --subtext: #A0A7B5;
+    --primary: #4E9CFF;
+    --accent: #78DC82;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.card {
+    background-color: var(--card);
+    border-radius: 20px;
+    border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+    box-shadow: 0 18px 40px rgba(10, 14, 20, 0.24);
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.1;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: var(--accent);
+    box-shadow: 0 12px 24px color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.btn-ghost {
+    background-color: transparent;
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.input,
+.textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+    background-color: color-mix(in srgb, var(--card) 88%, var(--bg));
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, color 0.3s ease;
+    resize: vertical;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+    color: color-mix(in srgb, var(--subtext) 70%, transparent);
+}
+
+.input:focus,
+.textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn,
+    .card {
+        transition: none;
+    }
+}

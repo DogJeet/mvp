@@ -1,39 +1,29 @@
-:root {
-    color-scheme: light;
-    font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background-color: #f4f7fb;
-}
-
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    min-height: 100vh;
-    background: radial-gradient(120% 150% at 0% 0%, #f6f9ff 0%, #eef2ff 40%, #ffffff 100%);
-    color: #1f2933;
-}
-
 .app-shell {
     padding: 48px 24px 64px;
     max-width: 1200px;
     margin: 0 auto;
 }
 
+* {
+    box-sizing: border-box;
+}
+
 .hero {
     text-align: center;
     margin-bottom: 40px;
+    display: grid;
+    gap: 12px;
 }
 
 .hero__badge {
+    justify-self: center;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
     border-radius: 999px;
-    background: rgba(59, 130, 246, 0.1);
-    color: #1d4ed8;
+    background: color-mix(in srgb, var(--primary) 16%, transparent);
+    color: var(--primary);
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -41,10 +31,10 @@ body {
 }
 
 .hero__title {
-    margin: 16px 0 12px;
-    font-size: 42px;
+    margin: 0;
+    font-size: clamp(32px, 4vw, 44px);
     font-weight: 700;
-    color: #111827;
+    color: var(--text);
 }
 
 .hero__subtitle {
@@ -52,7 +42,7 @@ body {
     max-width: 580px;
     font-size: 16px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--subtext);
 }
 
 .app-content {
@@ -61,31 +51,28 @@ body {
 }
 
 .teachers-section {
-    background: rgba(255, 255, 255, 0.75);
-    border-radius: 24px;
     padding: 32px;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-    backdrop-filter: blur(16px);
+    display: grid;
+    gap: 24px;
 }
 
 .teachers-header {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 24px;
 }
 
 .section-title {
     margin: 0;
     font-size: 20px;
     font-weight: 600;
-    color: #111827;
+    color: var(--text);
 }
 
 .teachers-header__hint {
     margin: 0;
     font-size: 14px;
-    color: #64748b;
+    color: var(--subtext);
 }
 
 .teachers-grid {
@@ -94,12 +81,11 @@ body {
 }
 
 .teacher-card {
-    border-radius: 20px;
     padding: 24px;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
-    border: 1px solid rgba(59, 130, 246, 0.12);
     display: grid;
     gap: 24px;
+    background: radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 70%),
+        var(--card);
 }
 
 .teacher-card__header {
@@ -114,7 +100,7 @@ body {
     margin: 0;
     font-size: 24px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--text);
 }
 
 .teacher-card__rating {
@@ -122,7 +108,7 @@ body {
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
-    color: #1e3a8a;
+    color: var(--primary);
 }
 
 .teacher-card__rating-value {
@@ -132,7 +118,7 @@ body {
 
 .teacher-card__rating-caption {
     font-size: 13px;
-    color: #475569;
+    color: var(--subtext);
 }
 
 .teacher-card__distribution,
@@ -152,32 +138,32 @@ body {
     gap: 12px;
     align-items: center;
     font-size: 14px;
-    color: #1f2937;
+    color: var(--text);
 }
 
 .distribution-row__label {
     font-weight: 600;
-    color: #1d4ed8;
+    color: var(--primary);
 }
 
 .distribution-row__bar {
     width: 100%;
     height: 8px;
     border-radius: 999px;
-    background: rgba(191, 219, 254, 0.7);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
     overflow: hidden;
 }
 
 .distribution-row__fill {
     height: 100%;
-    background: linear-gradient(90deg, #2563eb 0%, #7c3aed 100%);
+    background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
     border-radius: 999px;
     transition: width 0.3s ease;
 }
 
 .distribution-row__percent {
     font-variant-numeric: tabular-nums;
-    color: #475569;
+    color: var(--subtext);
 }
 
 .comments-list {
@@ -190,11 +176,9 @@ body {
 
 .comment-item {
     padding: 16px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(148, 163, 184, 0.25);
     display: grid;
     gap: 8px;
+    background: color-mix(in srgb, var(--card) 92%, var(--bg));
 }
 
 .comment-item__header {
@@ -203,41 +187,42 @@ body {
     gap: 8px 16px;
     align-items: center;
     font-size: 13px;
-    color: #475569;
+    color: var(--subtext);
 }
 
 .comment-item__author {
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text);
+}
+
+.comment-item__meta {
+    color: var(--subtext);
 }
 
 .comment-item__rating {
     margin-left: auto;
     font-weight: 600;
-    color: #f97316;
+    color: var(--accent);
 }
 
 .comment-item__text {
     margin: 0;
     font-size: 15px;
     line-height: 1.55;
-    color: #1f2937;
+    color: var(--text);
 }
 
 .rating-panel {
-    background: #0f172a;
-    border-radius: 24px;
-    padding: 32px;
-    color: rgba(255, 255, 255, 0.92);
     display: grid;
     gap: 24px;
+    padding: 32px;
 }
 
 .rating-panel__hint {
     margin: 0;
     font-size: 14px;
     line-height: 1.6;
-    color: rgba(226, 232, 240, 0.8);
+    color: var(--subtext);
 }
 
 .teacher-selector {
@@ -247,26 +232,14 @@ body {
 }
 
 .teacher-selector__button {
-    border: 1px solid rgba(96, 165, 250, 0.4);
-    background: rgba(37, 99, 235, 0.15);
-    color: #bfdbfe;
-    border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.teacher-selector__button:hover {
-    transform: translateY(-1px);
-    background: rgba(59, 130, 246, 0.25);
+    background-color: transparent;
 }
 
 .teacher-selector__button--active {
-    background: #2563eb;
-    color: #ffffff;
-    border-color: rgba(37, 99, 235, 0.8);
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--accent);
+    box-shadow: 0 10px 20px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
 .rating-form {
@@ -285,6 +258,7 @@ body {
 .rating-form__legend {
     font-size: 15px;
     font-weight: 600;
+    color: var(--text);
 }
 
 .rating-form__stars-grid {
@@ -296,28 +270,29 @@ body {
     width: 44px;
     height: 44px;
     border-radius: 12px;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(15, 23, 42, 0.35);
-    color: rgba(248, 250, 252, 0.8);
+    border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+    background: color-mix(in srgb, var(--card) 85%, var(--bg));
+    color: color-mix(in srgb, var(--text) 80%, transparent);
     font-size: 20px;
     cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .star-button:hover {
     transform: translateY(-2px);
-    border-color: rgba(96, 165, 250, 0.6);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .star-button--active {
-    background: #fbbf24;
-    color: #0f172a;
-    border-color: #f59e0b;
+    background: var(--accent);
+    color: var(--bg);
+    border-color: color-mix(in srgb, var(--accent) 80%, transparent);
 }
 
 .rating-form__value {
     font-size: 13px;
-    color: rgba(226, 232, 240, 0.8);
+    color: var(--subtext);
 }
 
 .rating-form__field {
@@ -328,73 +303,32 @@ body {
 .rating-form__label {
     font-size: 14px;
     font-weight: 600;
+    color: var(--text);
 }
 
-.rating-form textarea {
-    border-radius: 16px;
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    background: rgba(15, 23, 42, 0.3);
-    color: rgba(255, 255, 255, 0.92);
-    padding: 16px;
-    font-family: inherit;
-    font-size: 14px;
-    resize: vertical;
+.rating-form .textarea {
     min-height: 120px;
 }
 
-.rating-form textarea::placeholder {
-    color: rgba(226, 232, 240, 0.5);
-}
-
-.rating-form textarea:focus {
-    outline: 2px solid rgba(59, 130, 246, 0.7);
-    outline-offset: 2px;
-}
-
 .rating-form__submit {
-    border: none;
-    border-radius: 16px;
-    padding: 14px 20px;
-    font-size: 15px;
-    font-weight: 600;
-    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-    color: #ffffff;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.rating-form__submit:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 24px rgba(59, 130, 246, 0.35);
-}
-
-.rating-form__submit:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    justify-content: center;
 }
 
 .snackbar {
     position: fixed;
     inset: auto 24px 24px auto;
     padding: 16px 20px;
-    background: #0f172a;
-    color: rgba(255, 255, 255, 0.92);
-    border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
     display: inline-flex;
     align-items: center;
     gap: 16px;
-    z-index: 10;
+    background: color-mix(in srgb, var(--card) 92%, var(--bg));
+    color: var(--text);
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
 }
 
 .snackbar__close {
-    border: none;
-    background: rgba(148, 163, 184, 0.15);
-    color: rgba(226, 232, 240, 0.9);
-    padding: 6px 12px;
-    border-radius: 12px;
-    font-size: 13px;
-    cursor: pointer;
+    padding: 8px 14px;
 }
 
 @media (min-width: 980px) {
@@ -411,10 +345,6 @@ body {
 @media (max-width: 640px) {
     .app-shell {
         padding: 32px 16px 48px;
-    }
-
-    .hero__title {
-        font-size: 32px;
     }
 
     .teachers-section,

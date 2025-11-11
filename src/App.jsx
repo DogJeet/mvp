@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import useTgTheme from "./lib/useTgTheme";
 
 const initialTeachers = [
     {
@@ -100,7 +101,7 @@ function DistributionRow({ label, percent }) {
 
 function CommentItem({ comment }) {
     return (
-        <li className="comment-item">
+        <li className="comment-item card">
             <div className="comment-item__header">
                 <span className="comment-item__author">{comment.author}</span>
                 <span className="comment-item__meta">{comment.date}</span>
@@ -117,7 +118,7 @@ function TeacherCard({ teacher }) {
     const formattedRating = useMemo(() => teacher.rating.toFixed(1), [teacher.rating]);
 
     return (
-        <article className="teacher-card" aria-label={`Профиль преподавателя ${teacher.name}`}>
+        <article className="teacher-card card" aria-label={`Профиль преподавателя ${teacher.name}`}>
             <header className="teacher-card__header">
                 <h2 className="teacher-card__name">{teacher.name}</h2>
                 <div className="teacher-card__rating" aria-label={`Средняя оценка ${formattedRating} из 5`}>
@@ -152,6 +153,8 @@ function TeacherCard({ teacher }) {
 }
 
 export default function App() {
+    useTgTheme();
+
     const [teachers, setTeachers] = useState(initialTeachers);
     const [selectedTeacherId, setSelectedTeacherId] = useState(initialTeachers[0].id);
     const [selectedRating, setSelectedRating] = useState(0);
@@ -235,7 +238,7 @@ export default function App() {
             </header>
 
             <main className="app-content">
-                <section className="teachers-section" aria-label="Список преподавателей">
+                <section className="teachers-section card" aria-label="Список преподавателей">
                     <div className="teachers-header">
                         <h2 className="section-title">Преподаватели</h2>
                         <p className="teachers-header__hint">Все карточки показывают только имя, оценки и отзывы.</p>
@@ -247,7 +250,7 @@ export default function App() {
                     </div>
                 </section>
 
-                <aside className="rating-panel" aria-labelledby="rating-panel-title">
+                <aside className="rating-panel card" aria-labelledby="rating-panel-title">
                     <h2 id="rating-panel-title" className="section-title">
                         Добавьте отзыв
                     </h2>
@@ -260,7 +263,7 @@ export default function App() {
                             <button
                                 key={`select-${teacher.id}`}
                                 type="button"
-                                className={`teacher-selector__button${
+                                className={`teacher-selector__button btn btn-ghost${
                                     teacher.id === selectedTeacherId ? " teacher-selector__button--active" : ""
                                 }`}
                                 onClick={() => setSelectedTeacherId(teacher.id)}
@@ -298,6 +301,7 @@ export default function App() {
                         <label className="rating-form__field">
                             <span className="rating-form__label">Комментарий</span>
                             <textarea
+                                className="textarea"
                                 value={comment}
                                 onChange={(event) => setComment(event.target.value)}
                                 placeholder="Что понравилось на занятии?"
@@ -305,7 +309,7 @@ export default function App() {
                             />
                         </label>
 
-                        <button type="submit" className="rating-form__submit" disabled={isSubmitting}>
+                        <button type="submit" className="rating-form__submit btn btn-primary" disabled={isSubmitting}>
                             {isSubmitting ? "Сохраняем..." : "Отправить"}
                         </button>
                     </form>
@@ -313,9 +317,9 @@ export default function App() {
             </main>
 
             {snackbar && (
-                <div className="snackbar" role="status" aria-live="polite">
+                <div className="snackbar card" role="status" aria-live="polite">
                     {snackbar}
-                    <button className="snackbar__close" type="button" onClick={() => setSnackbar("")}>
+                    <button className="snackbar__close btn btn-ghost" type="button" onClick={() => setSnackbar("")}>
                         Закрыть
                     </button>
                 </div>
