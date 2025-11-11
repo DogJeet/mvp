@@ -1,0 +1,8 @@
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/teachers"
+  to = "/.netlify/functions/teachers"
+  status = 200
+  force = true
