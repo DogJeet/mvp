@@ -1,292 +1,325 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Header from "./components/Header";
-import Filters from "./components/Filters";
-import EventCard from "./components/EventCard";
-import BottomNav from "./components/BottomNav";
-import Empty from "./components/Empty";
-import ProfileDialog from "./components/ProfileDialog";
-import EventDetails from "./components/EventDetails";
-import PlayerDashboard from "./components/PlayerDashboard";
-import AdminPanel from "./components/AdminPanel";
-import api from "./lib/api";
-import useTelegram from "./lib/telegram";
-import runDevTests from "./tests/dev-tests";
+import React, { useMemo, useState } from "react";
 
-const skeletonItems = Array.from({ length: 6 }, (_, i) => i);
+const initialTeachers = [
+    {
+        id: "anna",
+        name: "Анна Петрова",
+        rating: 4.9,
+        totalVotes: 128,
+        distribution: [
+            { label: "5", percent: 80 },
+            { label: "4", percent: 16 },
+            { label: "3", percent: 3 },
+            { label: "2", percent: 1 },
+            { label: "1", percent: 0 },
+        ],
+        comments: [
+            {
+                author: "Владимир, 10 класс",
+                date: "13 марта",
+                rating: 5,
+                text: "Объяснения понятные, сразу видно прогресс по домашкам.",
+            },
+            {
+                author: "Алина",
+                date: "8 марта",
+                rating: 4,
+                text: "Иногда темп высокий, но успевает ответить на вопросы.",
+            },
+        ],
+    },
+    {
+        id: "olga",
+        name: "Ольга Сергеевна",
+        rating: 4.7,
+        totalVotes: 94,
+        distribution: [
+            { label: "5", percent: 72 },
+            { label: "4", percent: 20 },
+            { label: "3", percent: 6 },
+            { label: "2", percent: 2 },
+            { label: "1", percent: 0 },
+        ],
+        comments: [
+            {
+                author: "Игорь",
+                date: "10 марта",
+                rating: 5,
+                text: "Помогла разобраться с темой за два занятия, спасибо!",
+            },
+            {
+                author: "Катя",
+                date: "1 марта",
+                rating: 4,
+                text: "Удобно, что даёт короткие шпаргалки после урока.",
+            },
+        ],
+    },
+    {
+        id: "maksim",
+        name: "Максим Андреевич",
+        rating: 4.5,
+        totalVotes: 76,
+        distribution: [
+            { label: "5", percent: 60 },
+            { label: "4", percent: 28 },
+            { label: "3", percent: 9 },
+            { label: "2", percent: 2 },
+            { label: "1", percent: 1 },
+        ],
+        comments: [
+            {
+                author: "Марина",
+                date: "9 марта",
+                rating: 5,
+                text: "Всегда даёт дополнительные задачи для тренировки.",
+            },
+            {
+                author: "Роман",
+                date: "2 марта",
+                rating: 4,
+                text: "Много практики на занятиях, но хотелось бы больше примеров.",
+            },
+        ],
+    },
+];
+
+const ratingScale = [1, 2, 3, 4, 5];
+
+function DistributionRow({ label, percent }) {
+    return (
+        <div className="distribution-row">
+            <span className="distribution-row__label">{label}</span>
+            <div className="distribution-row__bar" aria-hidden>
+                <div className="distribution-row__fill" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="distribution-row__percent">{percent}%</span>
+        </div>
+    );
+}
+
+function CommentItem({ comment }) {
+    return (
+        <li className="comment-item">
+            <div className="comment-item__header">
+                <span className="comment-item__author">{comment.author}</span>
+                <span className="comment-item__meta">{comment.date}</span>
+                <span className="comment-item__rating" aria-label={`Оценка ${comment.rating} из 5`}>
+                    ★ {comment.rating}
+                </span>
+            </div>
+            <p className="comment-item__text">{comment.text}</p>
+        </li>
+    );
+}
+
+function TeacherCard({ teacher }) {
+    const formattedRating = useMemo(() => teacher.rating.toFixed(1), [teacher.rating]);
+
+    return (
+        <article className="teacher-card" aria-label={`Профиль преподавателя ${teacher.name}`}>
+            <header className="teacher-card__header">
+                <h2 className="teacher-card__name">{teacher.name}</h2>
+                <div className="teacher-card__rating" aria-label={`Средняя оценка ${formattedRating} из 5`}>
+                    <span className="teacher-card__rating-value">{formattedRating}</span>
+                    <span className="teacher-card__rating-caption">{teacher.totalVotes} отзывов</span>
+                </div>
+            </header>
+
+            <section className="teacher-card__distribution" aria-labelledby={`${teacher.id}-distribution`}>
+                <h3 id={`${teacher.id}-distribution`} className="section-title">
+                    Распределение оценок
+                </h3>
+                <div className="distribution-list">
+                    {teacher.distribution.map((item) => (
+                        <DistributionRow key={item.label} label={item.label} percent={item.percent} />
+                    ))}
+                </div>
+            </section>
+
+            <section className="teacher-card__comments" aria-labelledby={`${teacher.id}-comments`}>
+                <h3 id={`${teacher.id}-comments`} className="section-title">
+                    Последние комментарии
+                </h3>
+                <ul className="comments-list">
+                    {teacher.comments.map((comment, index) => (
+                        <CommentItem key={`${teacher.id}-comment-${index}`} comment={comment} />
+                    ))}
+                </ul>
+            </section>
+        </article>
+    );
+}
 
 export default function App() {
-    const { tg } = useTelegram();
-    const [tab, setTab] = useState("catalog");
-    const [filters, setFilters] = useState({});
-    const [events, setEvents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [selected, setSelected] = useState(null);
-    const [profileOpen, setProfileOpen] = useState(false);
-    const [playerData, setPlayerData] = useState(null);
-    const [playerLoading, setPlayerLoading] = useState(false);
-    const [playerError, setPlayerError] = useState(null);
-    const [playerReloadKey, setPlayerReloadKey] = useState(0);
-    const [adminData, setAdminData] = useState(null);
-    const [adminLoading, setAdminLoading] = useState(false);
-    const [adminError, setAdminError] = useState(null);
-    const [adminReloadKey, setAdminReloadKey] = useState(0);
-    const [profile, setProfile] = useState(null);
-    const [profileLoading, setProfileLoading] = useState(true);
-    const [profileError, setProfileError] = useState(null);
-    const [profileSaving, setProfileSaving] = useState(false);
-    const [profileSaveError, setProfileSaveError] = useState(null);
-    const [profileReloadKey, setProfileReloadKey] = useState(0);
+    const [teachers, setTeachers] = useState(initialTeachers);
+    const [selectedTeacherId, setSelectedTeacherId] = useState(initialTeachers[0].id);
+    const [selectedRating, setSelectedRating] = useState(0);
+    const [comment, setComment] = useState("");
+    const [snackbar, setSnackbar] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        runDevTests?.();
-    }, []);
-
-    useEffect(() => {
-        let cancelled = false;
-        setLoading(true);
-        setError(null);
-        api.listEvents(filters)
-            .then((list) => {
-                if (!cancelled) {
-                    setEvents(Array.isArray(list) ? list : []);
-                    setLoading(false);
-                }
-            })
-            .catch((err) => {
-                if (!cancelled) {
-                    console.error(err);
-                    setEvents([]);
-                    setError("Не удалось загрузить события");
-                    setLoading(false);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [filters]);
-
-    useEffect(() => {
-        let cancelled = false;
-        setProfileLoading(true);
-        setProfileError(null);
-        api.getProfile()
-            .then((data) => {
-                if (!cancelled) {
-                    setProfile(data);
-                    setProfileLoading(false);
-                }
-            })
-            .catch((err) => {
-                if (!cancelled) {
-                    console.error(err);
-                    setProfile(null);
-                    setProfileError("Не удалось загрузить профиль");
-                    setProfileLoading(false);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [profileReloadKey]);
-
-    useEffect(() => {
-        if (tab !== "my") return undefined;
-        let cancelled = false;
-        setPlayerLoading(true);
-        setPlayerError(null);
-        api.getPlayerDashboard()
-            .then((data) => {
-                if (!cancelled) {
-                    setPlayerData(data);
-                    setPlayerLoading(false);
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setPlayerData(null);
-                    setPlayerError("Не удалось загрузить данные игрока");
-                    setPlayerLoading(false);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [tab, playerReloadKey]);
-
-    const roles = useMemo(() => {
-        if (!profile) return [];
-        if (Array.isArray(profile.roles)) return profile.roles;
-        if (typeof profile.role === "string") return [profile.role];
-        return [];
-    }, [profile]);
-
-    const isAdmin = useMemo(() => roles.some((role) => ["admin", "super_admin", "organizer"].includes(role)), [roles]);
-
-    useEffect(() => {
-        if (tab !== "admin" || !isAdmin) return undefined;
-        let cancelled = false;
-        setAdminLoading(true);
-        setAdminError(null);
-        api.getAdminOverview()
-            .then((data) => {
-                if (!cancelled) {
-                    setAdminData(data);
-                    setAdminLoading(false);
-                }
-            })
-            .catch((err) => {
-                if (!cancelled) {
-                    setAdminData(null);
-                    const message = err?.status === 403 ? "Доступ ограничен" : err?.message;
-                    setAdminError(message || "Не удалось загрузить панель администратора");
-                    setAdminLoading(false);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [tab, adminReloadKey, isAdmin]);
-
-    useEffect(() => {
-        if (!isAdmin && tab === "admin") {
-            setTab("catalog");
-        }
-    }, [isAdmin, tab]);
-
-    const handleFilterChange = (next) => {
-        setFilters(next);
-    };
-
-    const refreshProfile = useCallback(() => {
-        setProfileReloadKey((key) => key + 1);
-    }, []);
-
-    const handleProfileSubmit = useCallback(
-        async (formData) => {
-            if (profileSaving) return;
-            setProfileSaving(true);
-            setProfileSaveError(null);
-            try {
-                const updated = await api.updateProfile(formData);
-                setProfile((prev) => ({ ...(prev || {}), ...formData, ...(updated || {}) }));
-                setProfileSaving(false);
-                setProfileOpen(false);
-            } catch (err) {
-                console.error(err);
-                setProfileSaveError(err.message || "Не удалось сохранить профиль");
-                setProfileSaving(false);
-            }
-        },
-        [profileSaving],
+    const selectedTeacher = useMemo(
+        () => teachers.find((teacher) => teacher.id === selectedTeacherId),
+        [teachers, selectedTeacherId],
     );
 
-    useEffect(() => {
-        if (profileOpen) {
-            setProfileSaveError(null);
-        }
-    }, [profileOpen]);
+    const handleSubmit = async (event) => {
+        event.preventDefault();
 
-    const closeHandler = useMemo(() => {
-        if (!tg || typeof tg.close !== "function") {
-            return undefined;
+        if (!selectedTeacher) {
+            setSnackbar("Выберите преподавателя");
+            return;
         }
-        return () => tg.close();
-    }, [tg]);
 
-    const refreshPlayerData = () => setPlayerReloadKey((key) => key + 1);
-    const refreshAdminData = () => setAdminReloadKey((key) => key + 1);
+        if (!selectedRating) {
+            setSnackbar("Поставьте оценку от 1 до 5");
+            return;
+        }
+
+        setIsSubmitting(true);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        setTeachers((prevTeachers) =>
+            prevTeachers.map((teacher) => {
+                if (teacher.id !== selectedTeacherId) {
+                    return teacher;
+                }
+
+                const updatedTotalVotes = teacher.totalVotes + 1;
+                const updatedAverage = (teacher.rating * teacher.totalVotes + selectedRating) / updatedTotalVotes;
+                const updatedDistribution = teacher.distribution.map((item) =>
+                    item.label === String(selectedRating)
+                        ? { ...item, percent: Math.min(item.percent + 1, 100) }
+                        : item,
+                );
+
+                const newComment = comment.trim()
+                    ? {
+                          author: "Вы",
+                          date: "сегодня",
+                          rating: selectedRating,
+                          text: comment.trim(),
+                      }
+                    : {
+                          author: "Вы",
+                          date: "сегодня",
+                          rating: selectedRating,
+                          text: "Спасибо за урок!",
+                      };
+
+                return {
+                    ...teacher,
+                    rating: Number(updatedAverage.toFixed(1)),
+                    totalVotes: updatedTotalVotes,
+                    distribution: updatedDistribution,
+                    comments: [newComment, ...teacher.comments].slice(0, 3),
+                };
+            }),
+        );
+
+        setIsSubmitting(false);
+        setSnackbar("Спасибо! Оценка сохранена");
+        setSelectedRating(0);
+        setComment("");
+    };
 
     return (
         <div className="app-shell">
-            <Header
-                onOpenProfile={() => setProfileOpen(true)}
-                onCloseApp={closeHandler}
-                profile={profile}
-                profileLoading={profileLoading}
-                profileError={profileError}
-            />
-            <main className="app-main">
-                <div className="app-content">
-                    {tab === "catalog" ? (
-                        <div className="catalog-view">
-                            <section className="app-hero">
-                                <h1 className="app-hero__title">Играй, учись и знакомься с единомышленниками</h1>
-                                <p className="app-hero__subtitle">
-                                    Собрали подборку турниров, тренировок и мероприятий в твоём городе. Фильтруй, находи и записывайся в пару
-                                    кликов.
-                                </p>
-                            </section>
-                            <Filters onChange={handleFilterChange} initial={filters} className="catalog-filters" />
-                            {error && <div className="app-alert app-alert--error">{error}</div>}
-                            {loading ? (
-                                <div className="card-grid card-grid--loading">
-                                    {skeletonItems.map((i) => (
-                                        <div key={i} className="skeleton-card" />
-                                    ))}
-                                </div>
-                            ) : events.length === 0 ? (
-                                <Empty query={filters.q} />
-                            ) : (
-                                <div className="card-grid">
-                                    {events.map((ev) => (
-                                        <EventCard key={ev.id} ev={ev} onOpen={setSelected} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ) : tab === "my" ? (
-                        <PlayerDashboard
-                            data={playerData}
-                            loading={playerLoading}
-                            error={playerError}
-                            onRefresh={refreshPlayerData}
-                        />
-                    ) : (
-                        <AdminPanel
-                            data={adminData}
-                            loading={adminLoading}
-                            error={isAdmin ? adminError : "Доступ ограничен"}
-                            onRefresh={refreshAdminData}
-                        />
-                    )}
-                </div>
+            <header className="hero">
+                <span className="hero__badge">Прототип</span>
+                <h1 className="hero__title">Рейтинг учителей</h1>
+                <p className="hero__subtitle">
+                    Несколько карточек с основными показателями: средняя оценка, распределение баллов и свежие комментарии учеников.
+                </p>
+            </header>
+
+            <main className="app-content">
+                <section className="teachers-section" aria-label="Список преподавателей">
+                    <div className="teachers-header">
+                        <h2 className="section-title">Преподаватели</h2>
+                        <p className="teachers-header__hint">Все карточки показывают только имя, оценки и отзывы.</p>
+                    </div>
+                    <div className="teachers-grid">
+                        {teachers.map((teacher) => (
+                            <TeacherCard key={teacher.id} teacher={teacher} />
+                        ))}
+                    </div>
+                </section>
+
+                <aside className="rating-panel" aria-labelledby="rating-panel-title">
+                    <h2 id="rating-panel-title" className="section-title">
+                        Добавьте отзыв
+                    </h2>
+                    <p className="rating-panel__hint">
+                        Выберите учителя и поставьте оценку. Мы сохраним её локально, чтобы проверить сценарий.
+                    </p>
+
+                    <div className="teacher-selector" role="group" aria-label="Выбор преподавателя">
+                        {teachers.map((teacher) => (
+                            <button
+                                key={`select-${teacher.id}`}
+                                type="button"
+                                className={`teacher-selector__button${
+                                    teacher.id === selectedTeacherId ? " teacher-selector__button--active" : ""
+                                }`}
+                                onClick={() => setSelectedTeacherId(teacher.id)}
+                            >
+                                {teacher.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    <form className="rating-form" onSubmit={handleSubmit}>
+                        <fieldset className="rating-form__stars">
+                            <legend className="rating-form__legend">Оценка занятия</legend>
+                            <div className="rating-form__stars-grid">
+                                {ratingScale.map((value) => {
+                                    const isActive = value <= selectedRating;
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            className={`star-button${isActive ? " star-button--active" : ""}`}
+                                            onClick={() => setSelectedRating(selectedRating === value ? value - 1 : value)}
+                                            aria-pressed={isActive}
+                                            aria-label={`Поставить ${value} из 5`}
+                                        >
+                                            ★
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <span className="rating-form__value" aria-live="polite">
+                                {selectedRating ? `Вы выбрали ${selectedRating} из 5` : "Оценка ещё не выбрана"}
+                            </span>
+                        </fieldset>
+
+                        <label className="rating-form__field">
+                            <span className="rating-form__label">Комментарий</span>
+                            <textarea
+                                value={comment}
+                                onChange={(event) => setComment(event.target.value)}
+                                placeholder="Что понравилось на занятии?"
+                                rows={4}
+                            />
+                        </label>
+
+                        <button type="submit" className="rating-form__submit" disabled={isSubmitting}>
+                            {isSubmitting ? "Сохраняем..." : "Отправить"}
+                        </button>
+                    </form>
+                </aside>
             </main>
-            <footer className="app-footer">© {new Date().getFullYear()} GameUp</footer>
-            <EventDetails
-                id={selected}
-                open={Boolean(selected)}
-                onClose={() => setSelected(null)}
-                onRegistered={() => {
-                    refreshPlayerData();
-                    refreshAdminData();
-                }}
-                onWaitlisted={() => {
-                    refreshPlayerData();
-                    refreshAdminData();
-                }}
-                profile={profile}
-            />
-            <ProfileDialog
-                open={profileOpen}
-                onOpenChange={setProfileOpen}
-                profile={profile}
-                loading={profileLoading}
-                error={profileError}
-                saving={profileSaving}
-                saveError={profileSaveError}
-                onRetry={refreshProfile}
-                onSubmit={handleProfileSubmit}
-            />
-            <BottomNav
-                active={tab}
-                onChange={(nextTab) => {
-                    if (nextTab === "admin" && !isAdmin) return;
-                    setTab(nextTab);
-                }}
-                onProfile={() => setProfileOpen(true)}
-                showAdmin={isAdmin}
-            />
+
+            {snackbar && (
+                <div className="snackbar" role="status" aria-live="polite">
+                    {snackbar}
+                    <button className="snackbar__close" type="button" onClick={() => setSnackbar("")}>
+                        Закрыть
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
