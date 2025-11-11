@@ -1,44 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
+import ReviewForm from "./components/ReviewForm";
 import TeacherList from "./components/TeacherList";
 import useTgTheme from "./lib/useTgTheme";
 
 type ScreenState =
     | { type: "list" }
-    | { type: "review"; teacherId: string; teacherName: string }
+    | { type: "review"; teacherId: number; teacherName: string }
     | { type: "rated" };
-
-type ReviewFormProps = {
-    teacherName: string;
-    onSubmit: () => void;
-    onBack: () => void;
-};
-
-function ReviewForm({ teacherName, onSubmit, onBack }: ReviewFormProps) {
-    return (
-        <section className="space-y-6">
-            <header className="space-y-2">
-                <h2 className="text-xl font-semibold text-text">Форма отзыва</h2>
-                <p className="text-sm text-subtext">
-                    Заглушка формы для преподавателя <span className="text-text">{teacherName}</span>.
-                </p>
-            </header>
-
-            <p className="rounded-2xl border border-white/5 bg-card/60 p-4 text-sm text-subtext">
-                Здесь появится форма с выбором оценки и полем комментария. Пока что используем кнопку для проверки
-                навигации между экранами.
-            </p>
-
-            <div className="flex flex-wrap gap-3">
-                <button type="button" className="btn btn-primary" onClick={onSubmit}>
-                    Отправить тестовый отзыв
-                </button>
-                <button type="button" className="btn btn-ghost" onClick={onBack}>
-                    Назад к списку
-                </button>
-            </div>
-        </section>
-    );
-}
 
 type AlreadyRatedProps = {
     onReset: () => void;
@@ -76,7 +44,12 @@ export default function App() {
     }, [screen]);
 
     const openReview = useCallback((teacherId: string, teacherName: string) => {
-        setScreen({ type: "review", teacherId, teacherName });
+        const numericId = Number(teacherId);
+        if (Number.isNaN(numericId)) {
+            console.error("Невозможно открыть форму отзыва: некорректный идентификатор преподавателя", teacherId);
+            return;
+        }
+        setScreen({ type: "review", teacherId: numericId, teacherName });
     }, []);
 
     const showList = useCallback(() => {
@@ -106,7 +79,7 @@ export default function App() {
             <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8">
                 {screen.type === "list" && <TeacherList onSelect={openReview} />}
                 {screen.type === "review" && (
-                    <ReviewForm teacherName={screen.teacherName} onSubmit={markRated} onBack={showList} />
+                    <ReviewForm teacherId={screen.teacherId} onSuccess={markRated} onAlreadyRated={markRated} />
                 )}
                 {screen.type === "rated" && <AlreadyRated onReset={showList} />}
             </main>
