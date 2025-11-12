@@ -46,8 +46,8 @@ const verifySignature = (signingInput, signature) => {
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
 
-  const expectedBuffer = Buffer.from(expected);
-  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = base64UrlToBuffer(expected);
+  const signatureBuffer = base64UrlToBuffer(signature);
 
   if (expectedBuffer.length !== signatureBuffer.length) {
     return false;
