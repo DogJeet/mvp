@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
     TeacherSummary,
     TeacherReviewRecord,
@@ -7,6 +7,9 @@ import {
     deleteTeacher,
     fetchTeacherReviews,
     adminLogout,
+    fetchSettings,
+    updateSettings,
+    SettingsMap,
 } from "../../lib/api";
 
 interface AdminDashboardProps {
@@ -21,7 +24,10 @@ const formatRating = (value: number | null | undefined) => {
     return value.toFixed(1);
 };
 
+type AdminTab = "teachers" | "settings";
+
 export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDashboardProps) {
+    const [activeTab, setActiveTab] = useState<AdminTab>("teachers");
     const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
     const [loadingTeachers, setLoadingTeachers] = useState(false);
     const [teachersError, setTeachersError] = useState<string | null>(null);
@@ -42,6 +48,15 @@ export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDash
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [logoutPending, setLogoutPending] = useState(false);
     const [logoutError, setLogoutError] = useState<string | null>(null);
+
+    const [settings, setSettings] = useState<SettingsMap | null>(null);
+    const [settingsDraft, setSettingsDraft] = useState<SettingsMap | null>(null);
+    const [settingsLoading, setSettingsLoading] = useState(false);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
+    const [settingsFormError, setSettingsFormError] = useState<string | null>(null);
+    const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
+    const [settingsSaving, setSettingsSaving] = useState(false);
+    const [settingsVersion, setSettingsVersion] = useState(0);
 
     const loadTeachers = useCallback(() => {
         let cancelled = false;
@@ -72,9 +87,147 @@ export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDash
     }, []);
 
     useEffect(() => {
+        if (activeTab !== "teachers") {
+            return;
+        }
+
         const cleanup = loadTeachers();
         return cleanup;
-    }, [loadTeachers, listVersion]);
+    }, [activeTab, loadTeachers, listVersion]);
+
+    useEffect(() => {
+        if (activeTab !== "settings") {
+            return;
+        }
+
+        let cancelled = false;
+        setSettingsLoading(true);
+        setSettingsError(null);
+        setSettingsFormError(null);
+        setSettingsSuccess(null);
+
+        fetchSettings()
+            .then((data) => {
+                if (cancelled) return;
+                setSettings(data);
+                setSettingsDraft(data);
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                const message = error instanceof Error ? error.message : "Не удалось загрузить настройки";
+                setSettingsError(message);
+                setSettings(null);
+                setSettingsDraft(null);
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setSettingsLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTab, settingsVersion]);
+
+    const handleSettingsFieldChange = useCallback(
+        <K extends keyof SettingsMap>(key: K, value: SettingsMap[K]) => {
+            setSettingsDraft((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    [key]: value,
+                } as SettingsMap;
+            });
+            setSettingsFormError(null);
+            setSettingsSuccess(null);
+        },
+        []
+    );
+
+    const handleSettingsToggle = useCallback(
+        (event: ChangeEvent<HTMLSelectElement>) => {
+            const normalized = event.target.value === "true" ? "true" : "false";
+            handleSettingsFieldChange("one_review_per_teacher", normalized);
+        },
+        [handleSettingsFieldChange]
+    );
+
+    const reloadSettings = useCallback(() => {
+        setSettingsVersion((version) => version + 1);
+    }, []);
+
+    const handleSettingsSubmit = useCallback(
+        async (event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (!settingsDraft || settingsSaving) {
+                return;
+            }
+
+            const updates: Partial<Record<keyof SettingsMap, string | boolean>> = {};
+            const errors: string[] = [];
+
+            const minLenRaw = settingsDraft.min_comment_length.trim();
+            const minLen = Number.parseInt(minLenRaw, 10);
+            if (!Number.isInteger(minLen) || minLen < 1 || minLen > 800) {
+                errors.push("Минимальная длина комментария должна быть от 1 до 800 символов");
+            } else if (minLenRaw !== settings?.min_comment_length) {
+                updates.min_comment_length = String(minLen);
+            }
+
+            const maxRatingRaw = settingsDraft.max_rating.trim();
+            const maxRating = Number.parseInt(maxRatingRaw, 10);
+            if (!Number.isInteger(maxRating) || maxRating < 1 || maxRating > 10) {
+                errors.push("Максимальная оценка должна быть числом от 1 до 10");
+            } else if (maxRatingRaw !== settings?.max_rating) {
+                updates.max_rating = String(maxRating);
+            }
+
+            const reviewLimitRaw = settingsDraft.one_review_per_teacher.trim().toLowerCase();
+            if (reviewLimitRaw !== "true" && reviewLimitRaw !== "false") {
+                errors.push("Параметр 'Один отзыв на преподавателя' должен быть true или false");
+            } else if (reviewLimitRaw !== settings?.one_review_per_teacher) {
+                updates.one_review_per_teacher = reviewLimitRaw;
+            }
+
+            if (errors.length > 0) {
+                setSettingsFormError(errors[0]);
+                setSettingsSuccess(null);
+                return;
+            }
+
+            if (Object.keys(updates).length === 0) {
+                setSettingsFormError(null);
+                setSettingsSuccess("Изменений не обнаружено");
+                return;
+            }
+
+            setSettingsSaving(true);
+            setSettingsFormError(null);
+            setSettingsSuccess(null);
+
+            try {
+                const updated = await updateSettings(updates);
+                setSettings(updated);
+                setSettingsDraft(updated);
+                setSettingsSuccess("Настройки сохранены");
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Не удалось сохранить настройки";
+                setSettingsFormError(message);
+            } finally {
+                setSettingsSaving(false);
+            }
+        },
+        [settingsDraft, settingsSaving, settings]
+    );
+
+    const handleSettingsReset = useCallback(() => {
+        if (settings) {
+            setSettingsDraft(settings);
+        }
+        setSettingsFormError(null);
+        setSettingsSuccess(null);
+    }, [settings]);
 
     const resetReviews = useCallback(() => {
         setReviews([]);
@@ -224,12 +377,31 @@ export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDash
                 </div>
             </header>
 
-            <section className="card space-y-4 p-6">
-                <header className="space-y-1">
-                    <h2 className="text-lg font-semibold text-text">Добавить преподавателя</h2>
-                    <p className="text-sm text-subtext">Заполните форму, чтобы пополнить список.</p>
-                </header>
-                <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleAddTeacher}>
+            <nav className="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    className={`btn ${activeTab === "teachers" ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setActiveTab("teachers")}
+                >
+                    Преподаватели
+                </button>
+                <button
+                    type="button"
+                    className={`btn ${activeTab === "settings" ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setActiveTab("settings")}
+                >
+                    Настройки
+                </button>
+            </nav>
+
+            {activeTab === "teachers" && (
+                <>
+                    <section className="card space-y-4 p-6">
+                        <header className="space-y-1">
+                            <h2 className="text-lg font-semibold text-text">Добавить преподавателя</h2>
+                            <p className="text-sm text-subtext">Заполните форму, чтобы пополнить список.</p>
+                        </header>
+                        <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleAddTeacher}>
                     <label className="flex flex-col gap-2 sm:col-span-1">
                         <span className="text-sm text-subtext">Имя и фамилия</span>
                         <input
@@ -260,15 +432,15 @@ export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDash
                         {addError && <span className="text-sm text-red-400">{addError}</span>}
                         {addSuccess && <span className="text-sm text-[rgb(var(--accent))]">{addSuccess}</span>}
                     </div>
-                </form>
-            </section>
+                        </form>
+                    </section>
 
-            <section className="card space-y-4 p-6">
-                <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold text-text">Список преподавателей</h2>
-                        <p className="text-sm text-subtext">Нажмите, чтобы посмотреть отзывы или удалить.</p>
-                    </div>
+                    <section className="card space-y-4 p-6">
+                        <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-lg font-semibold text-text">Список преподавателей</h2>
+                                <p className="text-sm text-subtext">Нажмите, чтобы посмотреть отзывы или удалить.</p>
+                            </div>
                     <button
                         type="button"
                         className="btn btn-ghost"
@@ -283,11 +455,11 @@ export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDash
                 {!loadingTeachers && teacherList.length === 0 && (
                     <p className="text-sm text-subtext">Пока нет добавленных преподавателей.</p>
                 )}
-                <ul className="space-y-3">
-                    {teacherList.map((teacher) => {
-                        const isSelected = teacher.id === selectedTeacherId;
-                        return (
-                            <li
+                        <ul className="space-y-3">
+                            {teacherList.map((teacher) => {
+                                const isSelected = teacher.id === selectedTeacherId;
+                                return (
+                                    <li
                                 key={teacher.id}
                                 className={`card flex flex-col gap-3 p-4 transition-colors ${
                                     isSelected ? "border border-[rgb(var(--accent))]" : ""
@@ -323,36 +495,132 @@ export default function AdminDashboard({ onLoggedOut, onDataChanged }: AdminDash
                             </li>
                         );
                     })}
-                </ul>
-            </section>
+                        </ul>
+                    </section>
 
-            {selectedTeacherId !== null && (
-                <section className="card space-y-4 p-6">
-                    <header className="space-y-1">
-                        <h2 className="text-lg font-semibold text-text">
-                            Отзывы: {selectedTeacherName}
-                        </h2>
-                        <p className="text-sm text-subtext">
-                            Последние комментарии учеников. Здесь отображаются только новые данные.
-                        </p>
-                    </header>
-                    {reviewsError && <p className="text-sm text-red-400">{reviewsError}</p>}
-                    {reviewsLoading && <p className="text-sm text-subtext">Загружаем отзывы...</p>}
-                    {!reviewsLoading && reviews.length === 0 && !reviewsError && (
-                        <p className="text-sm text-subtext">Пока отзывов нет.</p>
+                    {selectedTeacherId !== null && (
+                        <section className="card space-y-4 p-6">
+                            <header className="space-y-1">
+                                <h2 className="text-lg font-semibold text-text">
+                                    Отзывы: {selectedTeacherName}
+                                </h2>
+                                <p className="text-sm text-subtext">
+                                    Последние комментарии учеников. Здесь отображаются только новые данные.
+                                </p>
+                            </header>
+                            {reviewsError && <p className="text-sm text-red-400">{reviewsError}</p>}
+                            {reviewsLoading && <p className="text-sm text-subtext">Загружаем отзывы...</p>}
+                            {!reviewsLoading && reviews.length === 0 && !reviewsError && (
+                                <p className="text-sm text-subtext">Пока отзывов нет.</p>
+                            )}
+                            <ul className="space-y-3">
+                                {reviews.map((review) => (
+                                    <li key={review.id} className="card space-y-2 p-4">
+                                        <div className="flex items-center gap-2 text-sm text-subtext">
+                                            <span className="font-semibold text-text">Оценка: {review.rating}</span>
+                                            <span>·</span>
+                                            <span>{new Date(review.created_at).toLocaleString()}</span>
+                                        </div>
+                                        <p className="text-sm leading-relaxed text-text">{review.comment}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
                     )}
-                    <ul className="space-y-3">
-                        {reviews.map((review) => (
-                            <li key={review.id} className="card space-y-2 p-4">
-                                <div className="flex items-center gap-2 text-sm text-subtext">
-                                    <span className="font-semibold text-text">Оценка: {review.rating}</span>
-                                    <span>·</span>
-                                    <span>{new Date(review.created_at).toLocaleString()}</span>
-                                </div>
-                                <p className="text-sm leading-relaxed text-text">{review.comment}</p>
-                            </li>
-                        ))}
-                    </ul>
+                </>
+            )}
+
+            {activeTab === "settings" && (
+                <section className="card space-y-4 p-6">
+                    <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-text">Настройки приложения</h2>
+                            <p className="text-sm text-subtext">
+                                Управляйте ограничениями отзывов и параметрами рейтинга.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={reloadSettings}
+                            disabled={settingsLoading}
+                        >
+                            {settingsLoading ? "Обновляем..." : "Обновить"}
+                        </button>
+                    </header>
+
+                    {settingsError && <p className="text-sm text-red-400">{settingsError}</p>}
+                    {settingsLoading && <p className="text-sm text-subtext">Загружаем настройки...</p>}
+
+                    {!settingsLoading && settingsDraft && (
+                        <form className="space-y-4" onSubmit={handleSettingsSubmit}>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm text-subtext">Минимальная длина комментария</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={800}
+                                        className="input"
+                                        value={settingsDraft.min_comment_length}
+                                        onChange={(event) =>
+                                            handleSettingsFieldChange("min_comment_length", event.target.value)
+                                        }
+                                        disabled={settingsSaving}
+                                        required
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm text-subtext">Максимальная оценка</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        className="input"
+                                        value={settingsDraft.max_rating}
+                                        onChange={(event) =>
+                                            handleSettingsFieldChange("max_rating", event.target.value)
+                                        }
+                                        disabled={settingsSaving}
+                                        required
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-2 sm:col-span-2">
+                                    <span className="text-sm text-subtext">Один отзыв на преподавателя</span>
+                                    <select
+                                        className="input"
+                                        value={settingsDraft.one_review_per_teacher}
+                                        onChange={handleSettingsToggle}
+                                        disabled={settingsSaving}
+                                    >
+                                        <option value="true">Включено</option>
+                                        <option value="false">Выключено</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            {settingsFormError && (
+                                <p className="text-sm text-red-400">{settingsFormError}</p>
+                            )}
+                            {settingsSuccess && (
+                                <p className="text-sm text-[rgb(var(--accent))]">{settingsSuccess}</p>
+                            )}
+
+                            <div className="flex flex-wrap gap-3">
+                                <button type="submit" className="btn btn-primary" disabled={settingsSaving}>
+                                    {settingsSaving ? "Сохраняем..." : "Сохранить"}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost"
+                                    onClick={handleSettingsReset}
+                                    disabled={settingsSaving}
+                                >
+                                    Сбросить изменения
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </section>
             )}
         </div>

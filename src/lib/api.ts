@@ -20,6 +20,12 @@ export interface TeacherReviewRecord {
     created_at: string;
 }
 
+export interface SettingsMap {
+    min_comment_length: string;
+    max_rating: string;
+    one_review_per_teacher: 'true' | 'false';
+}
+
 const readErrorMessage = async (response: Response) => {
     const contentType = response.headers.get("content-type") || "";
 
@@ -169,4 +175,44 @@ export async function fetchTeacherReviews(teacherId: number): Promise<TeacherRev
     }
 
     throw new Error(await readErrorMessage(res));
+}
+
+export async function fetchSettings(): Promise<SettingsMap> {
+    const res = await fetch("/api/settings", {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (!res.ok) {
+        throw new Error(await readErrorMessage(res));
+    }
+
+    const data = (await res.json()) as Partial<SettingsMap>;
+    return {
+        min_comment_length: data.min_comment_length ?? "10",
+        max_rating: data.max_rating ?? "5",
+        one_review_per_teacher: (data.one_review_per_teacher ?? "true") as 'true' | 'false',
+    };
+}
+
+export async function updateSettings(
+    updates: Partial<Record<keyof SettingsMap, string | boolean>>
+): Promise<SettingsMap> {
+    const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) {
+        throw new Error(await readErrorMessage(res));
+    }
+
+    const data = (await res.json()) as Partial<SettingsMap>;
+    return {
+        min_comment_length: data.min_comment_length ?? "10",
+        max_rating: data.max_rating ?? "5",
+        one_review_per_teacher: (data.one_review_per_teacher ?? "true") as 'true' | 'false',
+    };
 }

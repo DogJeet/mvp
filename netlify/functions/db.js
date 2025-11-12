@@ -2,6 +2,12 @@ import { neon } from '@netlify/neon';
 
 export const sql = neon();
 
+export const DEFAULT_SETTINGS = {
+    min_comment_length: "10",
+    max_rating: "5",
+    one_review_per_teacher: "true",
+};
+
 let schemaPromise;
 
 const createTables = async () => {
@@ -26,6 +32,23 @@ const createTables = async () => {
             UNIQUE (user_hash, teacher_id)
         )
     `;
+
+    await sql`
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    `;
+
+    for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+        // Insert default values without overwriting existing ones.
+        // eslint-disable-next-line no-await-in-loop
+        await sql`
+            INSERT INTO settings (key, value)
+            VALUES (${key}, ${value})
+            ON CONFLICT (key) DO NOTHING
+        `;
+    }
 };
 
 export const ensureSchema = async () => {
