@@ -2,7 +2,9 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import AlreadyRated from "./components/AlreadyRated";
 import ReviewForm from "./components/ReviewForm";
 import TeacherList from "./components/TeacherList";
+import AdminDashboard from "./components/admin/AdminDashboard";
 import useTgTheme from "./lib/useTgTheme";
+import { adminLogin, fetchAdminSession } from "./lib/api";
 
 type ScreenState =
     | { type: "list" }
@@ -12,12 +14,17 @@ type ScreenState =
 export default function App() {
     useTgTheme();
 
+    const initialPath = typeof window !== "undefined" ? window.location.pathname : "/";
+    const [currentPath, setCurrentPath] = useState(initialPath);
     const [screen, setScreen] = useState<ScreenState>({ type: "list" });
     const [teacherListVersion, setTeacherListVersion] = useState(0);
     const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
     const [passphrase, setPassphrase] = useState("");
     const [passphraseError, setPassphraseError] = useState<string | null>(null);
+    const [passphraseSubmitting, setPassphraseSubmitting] = useState(false);
     const [attemptTimestamps, setAttemptTimestamps] = useState<number[]>([]);
+    const [adminStatus, setAdminStatus] = useState<"idle" | "checking" | "authorized" | "unauthorized">("idle");
+    const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
     const titleTapState = useRef<{ count: number; timeout: number | null }>({
         count: 0,
         timeout: null,
@@ -27,9 +34,47 @@ export default function App() {
     const MAX_ATTEMPTS = 5;
     const TAP_RESET_DELAY = 1200; // 1.2 секунды, чтобы отслеживать серию нажатий
 
-    const showBack = screen.type !== "list";
+    const isAdminDashboard = currentPath === "/admin/dashboard";
+
+    const navigate = useCallback(
+        (path: string, options?: { replace?: boolean }) => {
+            if (typeof window === "undefined") {
+                setCurrentPath(path);
+                return;
+            }
+
+            if (options?.replace) {
+                window.history.replaceState(null, "", path);
+            } else {
+                window.history.pushState(null, "", path);
+            }
+
+            setCurrentPath(path);
+        },
+        []
+    );
+
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        const handlePopState = () => {
+            setCurrentPath(window.location.pathname);
+        };
+
+        window.addEventListener("popstate", handlePopState);
+        return () => {
+            window.removeEventListener("popstate", handlePopState);
+        };
+    }, []);
+
+    const showBack = !isAdminDashboard && screen.type !== "list";
 
     const headerSubtitle = useMemo(() => {
+        if (isAdminDashboard) {
+            return "Панель управления преподавателями";
+        }
         if (screen.type === "review") {
             return `Оставьте отзыв о преподавателе ${screen.teacherName}`;
         }
@@ -37,7 +82,7 @@ export default function App() {
             return "Спасибо за оценку!";
         }
         return "Выберите преподавателя и оставьте отзыв";
-    }, [screen]);
+    }, [isAdminDashboard, screen]);
 
     const openReview = useCallback((teacherId: string, teacherName: string) => {
         const numericId = Number(teacherId);
@@ -72,6 +117,10 @@ export default function App() {
     useEffect(() => resetTapState, [resetTapState]);
 
     const handleTitleClick = useCallback(() => {
+        if (isAdminDashboard) {
+            return;
+        }
+
         const state = titleTapState.current;
 
         if (state.timeout !== null) {
@@ -93,7 +142,7 @@ export default function App() {
             state.count = 0;
             state.timeout = null;
         }, TAP_RESET_DELAY);
-    }, [resetTapState, TAP_RESET_DELAY]);
+    }, [isAdminDashboard, resetTapState]);
 
     const activeAttempts = useMemo(() => {
         const now = Date.now();
@@ -107,6 +156,7 @@ export default function App() {
         setIsManagerModalOpen(false);
         setPassphrase("");
         setPassphraseError(null);
+        setPassphraseSubmitting(false);
     }, []);
 
     useEffect(() => {
@@ -126,52 +176,13 @@ export default function App() {
         };
     }, [isManagerModalOpen, closeManagerModal]);
 
-    type ManagerWindow = Window & {
-        __handleManagerPassphrase?: (code: string) => boolean | Promise<boolean>;
-    };
+    const handlePassphraseSubmit = useCallback(
+        async (event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
 
-    const verifyPassphrase = useCallback(
-        (code: string) => {
-            const managerWindow = window as ManagerWindow;
-            const handler = managerWindow.__handleManagerPassphrase;
-
-            if (typeof handler !== "function") {
-                setPassphraseError("Неверный код доступа.");
+            if (passphraseSubmitting) {
                 return;
             }
-
-            try {
-                const result = handler(code);
-
-                if (result instanceof Promise) {
-                    result
-                        .then((success) => {
-                            if (success) {
-                                window.dispatchEvent(new CustomEvent("manager-access-granted"));
-                                closeManagerModal();
-                            } else {
-                                setPassphraseError("Неверный код доступа.");
-                            }
-                        })
-                        .catch(() => {
-                            setPassphraseError("Не удалось проверить код. Попробуйте позже.");
-                        });
-                } else if (result) {
-                    window.dispatchEvent(new CustomEvent("manager-access-granted"));
-                    closeManagerModal();
-                } else {
-                    setPassphraseError("Неверный код доступа.");
-                }
-            } catch (error) {
-                setPassphraseError("Не удалось проверить код. Попробуйте позже.");
-            }
-        },
-        [closeManagerModal]
-    );
-
-    const handlePassphraseSubmit = useCallback(
-        (event: FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
 
             const trimmed = passphrase.trim();
             const now = Date.now();
@@ -192,10 +203,112 @@ export default function App() {
             const updated = [...filtered, now];
             setAttemptTimestamps(updated);
             setPassphraseError(null);
-            verifyPassphrase(trimmed);
+            setPassphraseSubmitting(true);
+
+            try {
+                const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+                await adminLogin(trimmed, userAgent);
+                closeManagerModal();
+                navigate("/admin/dashboard");
+            } catch (error) {
+                if (error instanceof Error) {
+                    setPassphraseError(error.message);
+                } else {
+                    setPassphraseError("Не удалось проверить код. Попробуйте позже.");
+                }
+            } finally {
+                setPassphraseSubmitting(false);
+            }
         },
-        [MAX_ATTEMPTS, RATE_LIMIT_WINDOW, attemptTimestamps, passphrase, verifyPassphrase]
+        [MAX_ATTEMPTS, RATE_LIMIT_WINDOW, attemptTimestamps, closeManagerModal, navigate, passphrase, passphraseSubmitting]
     );
+
+    useEffect(() => {
+        if (!isAdminDashboard) {
+            setAdminStatus("idle");
+            setAdminCheckError(null);
+            return;
+        }
+
+        let cancelled = false;
+        setAdminStatus("checking");
+        setAdminCheckError(null);
+
+        fetchAdminSession()
+            .then(() => {
+                if (cancelled) {
+                    return;
+                }
+                setAdminStatus("authorized");
+            })
+            .catch((error) => {
+                if (cancelled) {
+                    return;
+                }
+                setAdminStatus("unauthorized");
+                setAdminCheckError(error instanceof Error ? error.message : "Доступ запрещен");
+                navigate("/", { replace: true });
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isAdminDashboard, navigate]);
+
+    const handleAdminLoggedOut = useCallback(() => {
+        setAdminStatus("idle");
+        setAdminCheckError(null);
+        navigate("/", { replace: true });
+        setScreen({ type: "list" });
+        refreshTeachers();
+    }, [navigate, refreshTeachers]);
+
+    const adminContent = useMemo(() => {
+        if (!isAdminDashboard) {
+            return null;
+        }
+
+        if (adminStatus === "checking" || adminStatus === "idle") {
+            return <p className="text-sm text-subtext">Проверяем доступ...</p>;
+        }
+
+        if (adminStatus === "authorized") {
+            return <AdminDashboard onLoggedOut={handleAdminLoggedOut} onDataChanged={refreshTeachers} />;
+        }
+
+        if (adminStatus === "unauthorized") {
+            return (
+                <p className="text-sm text-red-400">
+                    {adminCheckError ?? "Недостаточно прав для просмотра панели."}
+                </p>
+            );
+        }
+
+        return null;
+    }, [adminCheckError, adminStatus, handleAdminLoggedOut, isAdminDashboard, refreshTeachers]);
+
+    const userContent = useMemo(() => {
+        if (isAdminDashboard) {
+            return null;
+        }
+
+        return (
+            <>
+                {screen.type === "list" && <TeacherList onSelect={openReview} refreshKey={teacherListVersion} />}
+                {screen.type === "review" && (
+                    <ReviewForm
+                        teacherId={screen.teacherId}
+                        onSuccess={() => {
+                            refreshTeachers();
+                            markRated();
+                        }}
+                        onAlreadyRated={markRated}
+                    />
+                )}
+                {screen.type === "rated" && <AlreadyRated onBack={showList} />}
+            </>
+        );
+    }, [isAdminDashboard, markRated, openReview, refreshTeachers, screen, showList, teacherListVersion]);
 
     return (
         <div className="min-h-screen bg-[rgb(var(--bg))] text-text transition-colors">
@@ -219,20 +332,7 @@ export default function App() {
             </header>
 
             <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8">
-                {screen.type === "list" && (
-                    <TeacherList onSelect={openReview} refreshKey={teacherListVersion} />
-                )}
-                {screen.type === "review" && (
-                    <ReviewForm
-                        teacherId={screen.teacherId}
-                        onSuccess={() => {
-                            refreshTeachers();
-                            markRated();
-                        }}
-                        onAlreadyRated={markRated}
-                    />
-                )}
-                {screen.type === "rated" && <AlreadyRated onBack={showList} />}
+                {isAdminDashboard ? adminContent : userContent}
             </main>
 
             {isManagerModalOpen && (
@@ -270,7 +370,7 @@ export default function App() {
                                     className="input"
                                     value={passphrase}
                                     onChange={(event) => setPassphrase(event.target.value)}
-                                    disabled={isRateLimited}
+                                    disabled={isRateLimited || passphraseSubmitting}
                                     placeholder="••••••"
                                 />
                             </label>
@@ -288,8 +388,12 @@ export default function App() {
                                 </p>
                             )}
                             <div className="flex items-center gap-3">
-                                <button type="submit" className="btn btn-primary" disabled={isRateLimited}>
-                                    Отправить
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={isRateLimited || passphraseSubmitting}
+                                >
+                                    {passphraseSubmitting ? "Проверяем..." : "Отправить"}
                                 </button>
                                 <button type="button" className="btn btn-ghost" onClick={closeManagerModal}>
                                     Отмена

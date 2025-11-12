@@ -13,6 +13,13 @@ export interface ReviewPayload {
     initData: string;
 }
 
+export interface TeacherReviewRecord {
+    id: number;
+    rating: number;
+    comment: string;
+    created_at: string;
+}
+
 const readErrorMessage = async (response: Response) => {
     const contentType = response.headers.get("content-type") || "";
 
@@ -70,6 +77,95 @@ export async function sendReview(data: ReviewPayload): Promise<"ok" | "already">
 
     if (res.status === 409) {
         return "already";
+    }
+
+    throw new Error(await readErrorMessage(res));
+}
+
+export async function adminLogin(passphrase: string, userAgent: string): Promise<void> {
+    const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ passphrase, ua: userAgent }),
+    });
+
+    if (res.status === 204) {
+        return;
+    }
+
+    throw new Error(await readErrorMessage(res));
+}
+
+export async function adminLogout(): Promise<void> {
+    const res = await fetch("/api/admin/logout", {
+        method: "POST",
+        credentials: "include",
+    });
+
+    if (res.status === 204) {
+        return;
+    }
+
+    throw new Error(await readErrorMessage(res));
+}
+
+export async function fetchAdminSession(): Promise<void> {
+    const res = await fetch("/api/admin/me", {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (res.ok) {
+        return;
+    }
+
+    throw new Error(await readErrorMessage(res));
+}
+
+export async function createTeacher(data: {
+    full_name: string;
+    subject?: string | null;
+}): Promise<TeacherSummary> {
+    const res = await fetch("/api/teachers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+    });
+
+    if (res.status === 201) {
+        return (await res.json()) as TeacherSummary;
+    }
+
+    throw new Error(await readErrorMessage(res));
+}
+
+export async function deleteTeacher(teacherId: number): Promise<void> {
+    const res = await fetch(`/api/teachers/${teacherId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+
+    if (res.status === 204) {
+        return;
+    }
+
+    throw new Error(await readErrorMessage(res));
+}
+
+export async function fetchTeacherReviews(teacherId: number): Promise<TeacherReviewRecord[]> {
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL("/api/reviews", baseUrl);
+    url.searchParams.set("teacher_id", String(teacherId));
+
+    const res = await fetch(url.toString(), {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (res.ok) {
+        return (await res.json()) as TeacherReviewRecord[];
     }
 
     throw new Error(await readErrorMessage(res));

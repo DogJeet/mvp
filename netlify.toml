@@ -8,6 +8,36 @@
   force = true
 
 [[redirects]]
+  from = "/api/teachers/*"
+  to = "/.netlify/functions/teachers/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/reviews"
+  to = "/.netlify/functions/reviews"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/admin/login"
+  to = "/.netlify/functions/admin_login"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/admin/logout"
+  to = "/.netlify/functions/admin_logout"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/admin/me"
+  to = "/.netlify/functions/admin_me"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/health"
   to = "/.netlify/functions/health"
   status = 200
