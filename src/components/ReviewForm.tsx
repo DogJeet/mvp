@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
+import { sendReview } from "../lib/api";
 
 type ReviewFormProps = {
     teacherId: number;
@@ -17,39 +18,6 @@ const readTelegramInitData = () => {
 
     const telegram = (window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram;
     return telegram?.WebApp?.initData ?? "";
-};
-
-const extractErrorMessage = async (response: Response) => {
-    const contentType = response.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-        try {
-            const payload = await response.json();
-            if (payload && typeof payload === "object") {
-                const message = (payload as Record<string, unknown>).message;
-                const error = (payload as Record<string, unknown>).error;
-                if (typeof message === "string" && message.trim()) {
-                    return message;
-                }
-                if (typeof error === "string" && error.trim()) {
-                    return error;
-                }
-            }
-        } catch (error) {
-            console.error("Failed to parse JSON error response", error);
-        }
-    } else {
-        try {
-            const text = await response.text();
-            if (text.trim()) {
-                return text;
-            }
-        } catch (error) {
-            console.error("Failed to read text error response", error);
-        }
-    }
-
-    return `Ошибка ${response.status}`;
 };
 
 export default function ReviewForm({ teacherId, onSuccess, onAlreadyRated }: ReviewFormProps) {
@@ -78,38 +46,22 @@ export default function ReviewForm({ teacherId, onSuccess, onAlreadyRated }: Rev
         setError(null);
 
         try {
-            const response = await fetch("/api/reviews", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                },
-                body: JSON.stringify({
-                    teacher_id: teacherId,
-                    rating,
-                    comment: trimmedComment,
-                    initData: readTelegramInitData(),
-                }),
+            const status = await sendReview({
+                teacher_id: teacherId,
+                rating,
+                comment: trimmedComment,
+                initData: readTelegramInitData(),
             });
 
-            if (response.status === 201) {
+            if (status === "ok") {
                 onSuccess();
                 return;
             }
 
-            if (response.status === 409) {
+            if (status === "already") {
                 onAlreadyRated();
                 return;
             }
-
-            if (response.status === 400 || response.status === 401) {
-                const message = await extractErrorMessage(response);
-                setError(message);
-                return;
-            }
-
-            const fallbackMessage = await extractErrorMessage(response);
-            setError(fallbackMessage || "Не удалось отправить отзыв");
         } catch (err) {
             if (err instanceof Error) {
                 setError(err.message);

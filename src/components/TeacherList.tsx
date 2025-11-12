@@ -8,16 +8,16 @@ type TeacherListProps = {
     onSelect: (teacherId: string, teacherName: string) => void;
 };
 
-const SORT_OPTIONS: Record<SortOrder, { label: string; value: string }> = {
-    desc: { label: "Сначала высокий рейтинг", value: "-rating" },
-    asc: { label: "Сначала низкий рейтинг", value: "rating" },
+const SORT_OPTIONS: Record<SortOrder, { label: string; value: SortOrder }> = {
+    desc: { label: "Сначала высокий рейтинг", value: "desc" },
+    asc: { label: "Сначала низкий рейтинг", value: "asc" },
 };
 
 export default function TeacherList({ onSelect }: TeacherListProps) {
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-    const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
+    const [allTeachers, setAllTeachers] = useState<TeacherSummary[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -27,33 +27,46 @@ export default function TeacherList({ onSelect }: TeacherListProps) {
     }, [search]);
 
     useEffect(() => {
-        const controller = new AbortController();
+        let active = true;
         setLoading(true);
         setError(null);
 
-        getTeachers({
-            search: debouncedSearch || undefined,
-            sort: SORT_OPTIONS[sortOrder].value,
-            signal: controller.signal,
-        })
+        getTeachers()
             .then((data) => {
-                if (!controller.signal.aborted) {
-                    setTeachers(data);
-                }
+                if (!active) return;
+                setAllTeachers(Array.isArray(data) ? data : []);
             })
             .catch((err) => {
-                if (controller.signal.aborted) return;
+                if (!active) return;
                 setError(err instanceof Error ? err.message : "Не удалось загрузить список учителей");
-                setTeachers([]);
+                setAllTeachers([]);
             })
             .finally(() => {
-                if (!controller.signal.aborted) {
+                if (active) {
                     setLoading(false);
                 }
             });
 
-        return () => controller.abort();
-    }, [debouncedSearch, sortOrder]);
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const teachers = useMemo(() => {
+        const query = debouncedSearch.toLowerCase();
+        const filtered = query
+            ? allTeachers.filter((teacher) => teacher.full_name.toLowerCase().includes(query))
+            : allTeachers.slice();
+
+        return filtered.sort((a, b) => {
+            const ratingA = a.avg_rating ?? 0;
+            const ratingB = b.avg_rating ?? 0;
+            if (ratingA === ratingB) {
+                return (b.reviews_count ?? 0) - (a.reviews_count ?? 0);
+            }
+            return sortOrder === "desc" ? ratingB - ratingA : ratingA - ratingB;
+        });
+    }, [allTeachers, debouncedSearch, sortOrder]);
 
     const emptyState = !loading && !error && teachers.length === 0;
 
@@ -99,7 +112,7 @@ export default function TeacherList({ onSelect }: TeacherListProps) {
                             name={teacher.full_name}
                             rating={teacher.avg_rating}
                             count={teacher.reviews_count}
-                            onClick={() => onSelect(teacher.id, teacher.full_name)}
+                            onClick={() => onSelect(teacher.id.toString(), teacher.full_name)}
                         />
                     </Fragment>
                 ))}
