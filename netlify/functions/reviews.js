@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ensureSchema, sql } from './db.js';
+import { requireManager } from './_auth.js';
 
 const TELEGRAM_WEBAPP_SECRET = process.env.TELEGRAM_WEBAPP_SECRET;
 const HMAC_SECRET = process.env.HMAC_SECRET;
@@ -105,11 +106,37 @@ const validatePayload = ({ teacher_id, rating, comment, initData }) => {
   return null;
 };
 
-export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
-    return jsonResponse(405, { error: 'Method Not Allowed' });
+const handleGet = async (event) => {
+  const auth = requireManager(event);
+  if (!auth.ok) {
+    return auth.response;
   }
 
+  try {
+    await ensureSchema();
+  } catch (error) {
+    console.error('Failed to ensure schema', error);
+    return jsonResponse(500, { error: 'Database unavailable' });
+  }
+
+  const teacherIdRaw = event.queryStringParameters?.teacher_id;
+  const teacherId = Number.parseInt(teacherIdRaw || '', 10);
+
+  if (!Number.isInteger(teacherId) || teacherId <= 0) {
+    return jsonResponse(400, { error: 'Некорректный идентификатор преподавателя' });
+  }
+
+  const reviews = await sql`
+    SELECT id, rating, comment, created_at
+    FROM reviews
+    WHERE teacher_id = ${teacherId}
+    ORDER BY created_at DESC
+  `;
+
+  return jsonResponse(200, reviews);
+};
+
+const handlePost = async (event) => {
   try {
     await ensureSchema();
 
@@ -175,4 +202,18 @@ export async function handler(event) {
     console.error('Failed to create review', error);
     return jsonResponse(500, { error: 'Не удалось сохранить отзыв' });
   }
+};
+
+export async function handler(event) {
+  const method = event.httpMethod || 'GET';
+
+  if (method === 'GET') {
+    return handleGet(event);
+  }
+
+  if (method === 'POST') {
+    return handlePost(event);
+  }
+
+  return jsonResponse(405, { error: 'Method Not Allowed' });
 }
