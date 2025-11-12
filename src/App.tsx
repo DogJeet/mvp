@@ -18,10 +18,14 @@ export default function App() {
     const [passphrase, setPassphrase] = useState("");
     const [passphraseError, setPassphraseError] = useState<string | null>(null);
     const [attemptTimestamps, setAttemptTimestamps] = useState<number[]>([]);
-    const longPressTimeout = useRef<number | null>(null);
+    const titleTapState = useRef<{ count: number; timeout: number | null }>({
+        count: 0,
+        timeout: null,
+    });
 
     const RATE_LIMIT_WINDOW = 10 * 60 * 1000; // 10 минут
     const MAX_ATTEMPTS = 5;
+    const TAP_RESET_DELAY = 1200; // 1.2 секунды, чтобы отслеживать серию нажатий
 
     const showBack = screen.type !== "list";
 
@@ -56,30 +60,40 @@ export default function App() {
         setScreen({ type: "rated" });
     }, []);
 
-    const cancelLongPress = useCallback(() => {
-        if (longPressTimeout.current !== null) {
-            window.clearTimeout(longPressTimeout.current);
-            longPressTimeout.current = null;
+    const resetTapState = useCallback(() => {
+        const state = titleTapState.current;
+        if (state.timeout !== null) {
+            window.clearTimeout(state.timeout);
         }
+        state.count = 0;
+        state.timeout = null;
     }, []);
 
-    useEffect(() => cancelLongPress, [cancelLongPress]);
+    useEffect(() => resetTapState, [resetTapState]);
 
-    const handleTitlePressStart = useCallback(() => {
-        if (longPressTimeout.current !== null) {
-            return;
+    const handleTitleClick = useCallback(() => {
+        const state = titleTapState.current;
+
+        if (state.timeout !== null) {
+            window.clearTimeout(state.timeout);
         }
-        longPressTimeout.current = window.setTimeout(() => {
-            longPressTimeout.current = null;
+
+        const nextCount = state.count + 1;
+        state.count = nextCount;
+
+        if (nextCount >= 4) {
+            resetTapState();
             setPassphrase("");
             setPassphraseError(null);
             setIsManagerModalOpen(true);
-        }, 3500);
-    }, []);
+            return;
+        }
 
-    const handleTitlePressEnd = useCallback(() => {
-        cancelLongPress();
-    }, [cancelLongPress]);
+        state.timeout = window.setTimeout(() => {
+            state.count = 0;
+            state.timeout = null;
+        }, TAP_RESET_DELAY);
+    }, [resetTapState, TAP_RESET_DELAY]);
 
     const activeAttempts = useMemo(() => {
         const now = Date.now();
@@ -195,10 +209,7 @@ export default function App() {
                     <div className="flex flex-col">
                         <h1
                             className="text-lg font-semibold text-text"
-                            onPointerDown={handleTitlePressStart}
-                            onPointerUp={handleTitlePressEnd}
-                            onPointerLeave={handleTitlePressEnd}
-                            onPointerCancel={handleTitlePressEnd}
+                            onClick={handleTitleClick}
                         >
                             Рейтинг учителей
                         </h1>
