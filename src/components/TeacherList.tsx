@@ -6,6 +6,7 @@ type SortOrder = "desc" | "asc";
 
 type TeacherListProps = {
     onSelect: (teacherId: string, teacherName: string) => void;
+    refreshKey?: number;
 };
 
 const SORT_OPTIONS: Record<SortOrder, { label: string; value: SortOrder }> = {
@@ -13,7 +14,7 @@ const SORT_OPTIONS: Record<SortOrder, { label: string; value: SortOrder }> = {
     asc: { label: "Сначала низкий рейтинг", value: "asc" },
 };
 
-export default function TeacherList({ onSelect }: TeacherListProps) {
+export default function TeacherList({ onSelect, refreshKey }: TeacherListProps) {
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -50,7 +51,7 @@ export default function TeacherList({ onSelect }: TeacherListProps) {
         return () => {
             active = false;
         };
-    }, []);
+    }, [refreshKey]);
 
     const teachers = useMemo(() => {
         const query = debouncedSearch.toLowerCase();

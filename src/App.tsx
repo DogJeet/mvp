@@ -13,6 +13,7 @@ export default function App() {
     useTgTheme();
 
     const [screen, setScreen] = useState<ScreenState>({ type: "list" });
+    const [teacherListVersion, setTeacherListVersion] = useState(0);
 
     const showBack = screen.type !== "list";
 
@@ -33,6 +34,10 @@ export default function App() {
             return;
         }
         setScreen({ type: "review", teacherId: numericId, teacherName });
+    }, []);
+
+    const refreshTeachers = useCallback(() => {
+        setTeacherListVersion((version) => version + 1);
     }, []);
 
     const showList = useCallback(() => {
@@ -60,9 +65,18 @@ export default function App() {
             </header>
 
             <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8">
-                {screen.type === "list" && <TeacherList onSelect={openReview} />}
+                {screen.type === "list" && (
+                    <TeacherList onSelect={openReview} refreshKey={teacherListVersion} />
+                )}
                 {screen.type === "review" && (
-                    <ReviewForm teacherId={screen.teacherId} onSuccess={markRated} onAlreadyRated={markRated} />
+                    <ReviewForm
+                        teacherId={screen.teacherId}
+                        onSuccess={() => {
+                            refreshTeachers();
+                            markRated();
+                        }}
+                        onAlreadyRated={markRated}
+                    />
                 )}
                 {screen.type === "rated" && <AlreadyRated onBack={showList} />}
             </main>

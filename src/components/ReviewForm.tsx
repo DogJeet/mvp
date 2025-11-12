@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { sendReview } from "../lib/api";
 
 type ReviewFormProps = {
@@ -25,7 +25,37 @@ export default function ReviewForm({ teacherId, onSuccess, onAlreadyRated }: Rev
     const [hoverRating, setHoverRating] = useState<number | null>(null);
     const [comment, setComment] = useState("");
     const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [status, setStatus] = useState<
+        | { type: "idle" }
+        | { type: "success"; message: string }
+        | { type: "already"; message: string }
+        | { type: "error"; message: string }
+    >({ type: "idle" });
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
+    const setStatusSafe = (
+        next:
+            | { type: "idle" }
+            | { type: "success"; message: string }
+            | { type: "already"; message: string }
+            | { type: "error"; message: string }
+    ) => {
+        if (isMountedRef.current) {
+            setStatus(next);
+        }
+    };
+
+    const setSubmittingSafe = (value: boolean) => {
+        if (isMountedRef.current) {
+            setSubmitting(value);
+        }
+    };
 
     const trimmedComment = useMemo(() => comment.trim(), [comment]);
 
@@ -42,35 +72,46 @@ export default function ReviewForm({ teacherId, onSuccess, onAlreadyRated }: Rev
             return;
         }
 
-        setSubmitting(true);
-        setError(null);
+        setSubmittingSafe(true);
+        setStatusSafe({ type: "idle" });
 
         try {
-            const status = await sendReview({
+            const reviewStatus = await sendReview({
                 teacher_id: teacherId,
                 rating,
                 comment: trimmedComment,
                 initData: readTelegramInitData(),
             });
 
-            if (status === "ok") {
+            if (reviewStatus === "ok") {
+                setStatusSafe({ type: "success", message: "Спасибо! Ваш отзыв отправлен." });
+                await new Promise((resolve) => setTimeout(resolve, 600));
+                setSubmittingSafe(false);
                 onSuccess();
                 return;
             }
 
-            if (status === "already") {
+            if (reviewStatus === "already") {
+                setStatusSafe({
+                    type: "already",
+                    message: "Вы уже оставляли отзыв для этого преподавателя.",
+                });
+                await new Promise((resolve) => setTimeout(resolve, 600));
+                setSubmittingSafe(false);
                 onAlreadyRated();
                 return;
             }
         } catch (err) {
             if (err instanceof Error) {
-                setError(err.message);
+                setStatusSafe({ type: "error", message: err.message });
             } else {
-                setError("Не удалось отправить отзыв");
+                setStatusSafe({ type: "error", message: "Не удалось отправить отзыв" });
             }
-        } finally {
-            setSubmitting(false);
+            setSubmittingSafe(false);
+            return;
         }
+
+        setSubmittingSafe(false);
     };
 
     return (
@@ -137,7 +178,13 @@ export default function ReviewForm({ teacherId, onSuccess, onAlreadyRated }: Rev
                 <button type="submit" className="btn btn-primary" disabled={!isValid || submitting}>
                     {submitting ? "Отправляем..." : "Отправить"}
                 </button>
-                {error && <p className="text-sm text-red-400">{error}</p>}
+                {status.type === "success" && (
+                    <p className="text-sm text-[rgb(var(--accent))]">{status.message}</p>
+                )}
+                {status.type === "already" && (
+                    <p className="text-sm text-yellow-400">{status.message}</p>
+                )}
+                {status.type === "error" && <p className="text-sm text-red-400">{status.message}</p>}
             </div>
         </form>
     );
